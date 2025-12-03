@@ -20,6 +20,8 @@ class User(db.Model):
     rfid_uid = db.Column(db.String(50), unique=True, nullable=False, index=True)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     email = db.Column(db.String(100), unique=True, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    is_admin = db.Column(db.Boolean, default=False)
     # 1. hash password
     password_hash = db.Column(db.String(255), nullable=True) 
 
@@ -42,5 +44,7 @@ class User(db.Model):
             'full_name': self.full_name,
             'email': self.email,
             'rfid_uid': self.rfid_uid,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'is_active': self.is_active,
+            'is_admin': self.is_admin
         }

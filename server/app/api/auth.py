@@ -41,7 +41,9 @@ def login():
                 'id': user.id,
                 'email': user.email,
                 'full_name': user.full_name,
-                'rfid_uid': user.rfid_uid
+                'rfid_uid': user.rfid_uid,
+                'is_admin': user.is_admin,
+                'is_active': user.is_active
             }
         },
         message='dang nhap thanh cong',
