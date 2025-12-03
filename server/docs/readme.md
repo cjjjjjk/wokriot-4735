@@ -17,9 +17,14 @@
 4. run server:
    `python app.py`
 
+### Mô tả:
+- Admin/user
+- Chỉ admin tạo tk, user chỉ có login
 
 ### APIs 
 #### 1. Users
+- dev:
+   - **`GET`** `/api/dev/create-admin`: tạo nhanh 1 tài khoản admin
 - **`POST`** `/api/users`: create user (password default: "1")
    - Body: `{ "rfid_uid": "_", "email": "_" }`
 - **`GET`** `/api/users?page=1&per_page=10`: get users
