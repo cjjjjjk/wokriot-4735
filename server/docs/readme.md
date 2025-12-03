@@ -16,3 +16,18 @@
 
 4. run server:
    `python app.py`
+
+
+### APIs 
+#### 1. Users
+- `POST` `/api/users`: create user (password default: "1")
+   - Body: `{ "full_name": "_", "rfid_uid": "_", "email": "_" }`
+- `GET` `/api/users?page=1&per_page=10`: get users
+- `GET` `/api/users/<id>`: get user theo id
+- `PUT` `/api/users/<id>`: update user theo id
+   - Body: `{ "full_name": "_", "rfid_uid": "_", ... }`
+- `DELETE` `/api/users/<id>`: delete user theo id  
+- auth:
+   - `POST` `/api/login`: login
+      - Body: `{ "email": "_", "password": "_" }`
+

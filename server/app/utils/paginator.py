@@ -1,7 +1,7 @@
 # app/utils/paginator.py
 from flask import request, jsonify
 
-def paginate_query(query, serialize_func=None):
+def paginate_query(query, serialize_func=None, data_key_name='data'):
     """
     Hàm phân trang tái sử dụng cho mọi Model.
     
@@ -27,8 +27,8 @@ def paginate_query(query, serialize_func=None):
     
     # 4. Trả về cấu trúc JSON chuẩn
     return {
-        'data': items,
-        'meta': {
+        data_key_name: items,
+        'pagination': {
             'page': page,
             'per_page': per_page,
             'total_items': pagination.total,
