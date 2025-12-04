@@ -48,3 +48,32 @@ class User(db.Model):
             'is_active': self.is_active,
             'is_admin': self.is_admin
         }
+
+
+# model Attendance_logs:
+# - id: int, primary key
+# - rfid_uid: varchar, ID của thẻ RFID
+# - timestamp: datetime, thời gian quẹt thẻ
+# - device_id: varchar, ID của ESP32 gửi lên
+# - code: varchar, mã trạng thái
+# - created_at: datetime, server time
+
+class Attendance_logs(db.Model):
+    __tablename__ = 'attendance_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    rfid_uid = db.Column(db.String(50), nullable=False, index=True)  
+    timestamp = db.Column(db.DateTime, nullable=False, index=True)
+    device_id = db.Column(db.String(100))
+    code = db.Column(db.String(30))
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'rfid_uid': self.rfid_uid,
+            'timestamp': self.timestamp.isoformat(),
+            'device_id': self.device_id,
+            'code': self.code, # 'REALTIME', 'OFFLINE_SYNC'
+            'created_at': self.created_at.isoformat()
+        }
