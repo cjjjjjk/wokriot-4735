@@ -75,6 +75,25 @@ def get_user(user_id):
     )
 
 
+# API Lấy thông tin User theo RFID UID (Admin only)
+# URL: GET /api/users/rfid/<rfid_uid>
+@api_bp.route('/users/rfid/<string:rfid_uid>', methods=['GET'])
+# @require_admin
+def get_user_by_rfid(rfid_uid):
+    try:
+        user = User.query.filter_by(rfid_uid=rfid_uid).first()
+        if not user:
+            return error_response('user khong ton tai', 'USER_NOT_FOUND', 404)
+        
+        return success_response(
+            data=user.to_dict(),
+            message='lay thong tin user thanh cong'
+        )
+    
+    except Exception as e:
+        return error_response(str(e), 'DATABASE_ERROR', 500)
+
+
 # API Lấy thông tin User hiện tại (Get Me)
 # URL: GET /api/users/me
 @api_bp.route('/users/me', methods=['GET'])

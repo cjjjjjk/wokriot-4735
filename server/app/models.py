@@ -56,6 +56,7 @@ class User(db.Model):
 # - timestamp: datetime, thời gian quẹt thẻ
 # - device_id: varchar, ID của ESP32 gửi lên
 # - code: varchar, mã trạng thái
+# - error_code: varchar, mã lỗi
 # - created_at: datetime, server time
 
 class Attendance_logs(db.Model):
@@ -66,6 +67,7 @@ class Attendance_logs(db.Model):
     timestamp = db.Column(db.DateTime, nullable=False, index=True)
     device_id = db.Column(db.String(100))
     code = db.Column(db.String(30))
+    error_code = db.Column(db.String(30), nullable=True)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     def to_dict(self):
@@ -75,5 +77,6 @@ class Attendance_logs(db.Model):
             'timestamp': self.timestamp.isoformat(),
             'device_id': self.device_id,
             'code': self.code, # 'REALTIME', 'OFFLINE_SYNC'
+            'error_code': self.error_code, # 'USER_NOT_FOUND', 'USER_FORBIDDEN', 'UNKNOWN_ERROR'
             'created_at': self.created_at.isoformat()
         }
