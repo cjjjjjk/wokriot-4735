@@ -1,0 +1,19 @@
+/* Scoped styles for Settings page */
+.settings-page { padding: 20px; background: #f8fafc; min-height: 100vh; font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+.settings-container { max-width: 1100px; margin: 0 auto; }
+.settings-title { font-size: 20px; font-weight: 600; margin-bottom: 12px; }
+.panel { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 16px; border: 1px solid #e6eef6; box-shadow: 0 1px 2px rgba(2,6,23,0.04); }
+.form-row { display: flex; gap: 10px; align-items: center; flex-wrap:wrap; }
+.form-row input[type="text"], .form-row input[type="time"], .form-row input[type="number"] { padding: 8px 10px; border-radius: 6px; border: 1px solid #e6eef6; min-width: 120px; }
+.form-actions { display:flex; gap:8px; align-items:center; }
+.btn { padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; }
+.btn.primary { background: #0ea5a4; color: #fff; border-color: rgba(14,165,164,0.8); }
+.btn.small{ padding:6px 8px; font-size:13px }
+.btn.danger { background: #fee2e2; border-color:#fecaca }
+.list { margin-top: 12px; }
+.list-table { width:100%; border-collapse: collapse; }
+.list-table th { text-align:left; padding:10px; font-size:13px; color:#475569; border-bottom:1px solid #eef2f7 }
+.list-table td { padding:10px; border-bottom:1px solid #f1f5f9 }
+.actions { text-align:right }
+.empty { color:#94a3b8; padding:12px }
+.footer-actions { margin-top: 12px; display:flex; gap:8px }
