@@ -12,6 +12,45 @@ from datetime import datetime
 @api_bp.route('/attendance-logs', methods=['POST'])
 @require_auth
 def create_attendance_log():
+    """
+    create new attendance log (authenticated users)
+    ---
+    tags:
+      - Attendance Logs
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - rfid_uid
+            - timestamp
+          properties:
+            rfid_uid:
+              type: string
+              example: "ABC123456"
+            timestamp:
+              type: string
+              example: "2025-12-24T10:30:00Z"
+              description: "iso format with timezone"
+            device_id:
+              type: string
+              example: "device001"
+            code:
+              type: string
+              example: "REALTIME"
+              description: "REALTIME or OFFLINE_SYNC"
+    responses:
+      201:
+        description: attendance log created successfully
+      400:
+        description: missing fields or invalid timestamp format
+      401:
+        description: unauthorized
+    """
     try:
         data = request.get_json()
 
@@ -50,6 +89,36 @@ def create_attendance_log():
 @api_bp.route('/attendance-logs', methods=['GET'])
 @require_admin
 def get_attendance_logs():
+    """
+    get list of attendance logs with pagination (admin only)
+    ---
+    tags:
+      - Attendance Logs
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: page
+        type: integer
+        default: 1
+      - in: query
+        name: per_page
+        type: integer
+        default: 10
+      - in: query
+        name: rfid_uid
+        type: string
+        description: "filter by rfid uid"
+      - in: query
+        name: device_id
+        type: string
+        description: "filter by device id"
+    responses:
+      200:
+        description: list retrieved successfully
+      401:
+        description: unauthorized - admin access required
+    """
     query = Attendance_logs.query.order_by(Attendance_logs.timestamp.desc())
     
     rfid_uid = request.args.get('rfid_uid')
@@ -69,6 +138,27 @@ def get_attendance_logs():
 @api_bp.route('/attendance-logs/<int:log_id>', methods=['GET'])
 @require_admin
 def get_attendance_log(log_id):
+    """
+    get attendance log by id (admin only)
+    ---
+    tags:
+      - Attendance Logs
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: log_id
+        type: integer
+        required: true
+        description: "attendance log id"
+    responses:
+      200:
+        description: log retrieved successfully
+      404:
+        description: log not found
+      401:
+        description: unauthorized - admin access required
+    """
     log = Attendance_logs.query.get(log_id)
     if not log:
         return error_response('attendance log khong ton tai', 'LOG_NOT_FOUND', 404)
@@ -84,6 +174,45 @@ def get_attendance_log(log_id):
 @api_bp.route('/attendance-logs/<int:log_id>', methods=['PUT'])
 @require_admin
 def update_attendance_log(log_id):
+    """
+    update attendance log by id (admin only)
+    ---
+    tags:
+      - Attendance Logs
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: log_id
+        type: integer
+        required: true
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            rfid_uid:
+              type: string
+              example: "ABC123456"
+            timestamp:
+              type: string
+              example: "2025-12-24T10:30:00Z"
+            device_id:
+              type: string
+              example: "device001"
+            code:
+              type: string
+              example: "REALTIME"
+    responses:
+      200:
+        description: log updated successfully
+      400:
+        description: invalid data or timestamp format
+      404:
+        description: log not found
+      401:
+        description: unauthorized - admin access required
+    """
     try:
         log = Attendance_logs.query.get(log_id)
         if not log:
@@ -124,6 +253,27 @@ def update_attendance_log(log_id):
 @api_bp.route('/attendance-logs/<int:log_id>', methods=['DELETE'])
 @require_admin
 def delete_attendance_log(log_id):
+    """
+    delete attendance log by id (admin only)
+    ---
+    tags:
+      - Attendance Logs
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: log_id
+        type: integer
+        required: true
+        description: "attendance log id to delete"
+    responses:
+      200:
+        description: log deleted successfully
+      404:
+        description: log not found
+      401:
+        description: unauthorized - admin access required
+    """
     try:
         log = Attendance_logs.query.get(log_id)
         if not log:
@@ -142,6 +292,40 @@ def delete_attendance_log(log_id):
 @api_bp.route('/attendance-logs/me', methods=['GET'])
 @require_auth
 def get_my_attendance_logs():
+    """
+    get current user's attendance logs with optional filters
+    ---
+    tags:
+      - Attendance Logs
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: day
+        type: string
+        description: "filter by specific day (YYYY-MM-DD)"
+        example: "2025-12-24"
+      - in: query
+        name: month
+        type: string
+        description: "filter by month (YYYY-MM)"
+        example: "2025-12"
+      - in: query
+        name: page
+        type: integer
+        default: 1
+      - in: query
+        name: per_page
+        type: integer
+        default: 10
+    responses:
+      200:
+        description: user's attendance logs retrieved successfully
+      400:
+        description: invalid date format
+      401:
+        description: unauthorized
+    """
     try:
         current_user = request.current_user
         query = Attendance_logs.query.filter_by(rfid_uid=current_user.rfid_uid)
@@ -185,6 +369,48 @@ def get_my_attendance_logs():
 @api_bp.route('/attendance-logs/filter', methods=['GET'])
 @require_admin
 def get_filtered_attendance_logs():
+    """
+    get filtered attendance logs with multiple criteria (admin only)
+    ---
+    tags:
+      - Attendance Logs
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: day
+        type: string
+        description: "filter by specific day (YYYY-MM-DD)"
+        example: "2025-12-24"
+      - in: query
+        name: month
+        type: string
+        description: "filter by month (YYYY-MM)"
+        example: "2025-12"
+      - in: query
+        name: rfid_uid
+        type: string
+        description: "filter by rfid uid"
+      - in: query
+        name: device_id
+        type: string
+        description: "filter by device id"
+      - in: query
+        name: page
+        type: integer
+        default: 1
+      - in: query
+        name: per_page
+        type: integer
+        default: 10
+    responses:
+      200:
+        description: filtered logs retrieved successfully
+      400:
+        description: invalid date format
+      401:
+        description: unauthorized - admin access required
+    """
     try:
         query = Attendance_logs.query
         

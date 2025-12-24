@@ -11,6 +11,52 @@ from app.utils.auth_decorators import require_auth, require_admin
 @api_bp.route('/users', methods=['POST'])
 @require_admin
 def create_user():
+    """
+    create new user (admin only)
+    ---
+    tags:
+      - User Management
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+            - rfid_uid
+          properties:
+            email:
+              type: string
+              example: "user@example.com"
+            rfid_uid:
+              type: string
+              example: "ABC123456"
+            full_name:
+              type: string
+              example: "Nguyen Van A"
+            password:
+              type: string
+              example: "1"
+              description: "default password is '1' if not provided"
+            is_admin:
+              type: boolean
+              example: false
+            is_active:
+              type: boolean
+              example: true
+    responses:
+      201:
+        description: user created successfully
+      400:
+        description: missing required fields
+      401:
+        description: unauthorized - admin access required
+      409:
+        description: email or rfid already exists
+    """
     data = request.get_json()
 
     if not data or 'email' not in data or 'rfid_uid' not in data:
@@ -55,6 +101,30 @@ def create_user():
 @api_bp.route('/users', methods=['GET'])
 @require_admin
 def get_users():
+    """
+    get list of users with pagination (admin only)
+    ---
+    tags:
+      - User Management
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: page
+        type: integer
+        default: 1
+        description: page number
+      - in: query
+        name: per_page
+        type: integer
+        default: 10
+        description: items per page
+    responses:
+      200:
+        description: list of users retrieved successfully
+      401:
+        description: unauthorized - admin access required
+    """
     query = User.query.order_by(User.created_at.desc())
     result = paginate_query(query, serialize_func=lambda u: u.to_dict(), data_key_name='users')
     return success_response(data=result, message='lay danh sach user thanh cong')
@@ -65,6 +135,28 @@ def get_users():
 @api_bp.route('/users/<int:user_id>', methods=['GET'])
 @require_admin
 def get_user(user_id):
+    """
+    get user by id (admin only)
+    ---
+    tags:
+      - User Management
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: user_id
+        type: integer
+        required: true
+        description: "user id"
+    responses:
+      200:
+        description: user information retrieved successfully
+      404:
+        description: user not found
+      401:
+        description: unauthorized - admin access required
+    """
+
     user = User.query.get(user_id)
     if not user:
         return error_response('user khong ton tai', 'USER_NOT_FOUND', 404)
@@ -80,6 +172,24 @@ def get_user(user_id):
 @api_bp.route('/users/rfid/<string:rfid_uid>', methods=['GET'])
 # @require_admin
 def get_user_by_rfid(rfid_uid):
+    """
+    get user information by rfid uid (public endpoint)
+    ---
+    tags:
+      - User Management
+    parameters:
+      - in: path
+        name: rfid_uid
+        type: string
+        required: true
+        description: rfid uid of the user
+        example: "ABC123456"
+    responses:
+      200:
+        description: user information retrieved successfully
+      404:
+        description: user not found
+    """
     try:
         user = User.query.filter_by(rfid_uid=rfid_uid).first()
         if not user:
@@ -99,6 +209,19 @@ def get_user_by_rfid(rfid_uid):
 @api_bp.route('/users/me', methods=['GET'])
 @require_auth
 def get_me():
+    """
+    get current user information
+    ---
+    tags:
+      - User Management
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: current user information retrieved successfully
+      401:
+        description: unauthorized - authentication required
+    """
     return success_response(
         data=request.current_user.to_dict(),
         message='lay thong tin user thanh cong'
@@ -110,6 +233,39 @@ def get_me():
 @api_bp.route('/users/me', methods=['PUT'])
 @require_auth
 def update_me():
+    """
+    update current user information
+    ---
+    tags:
+      - User Management
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            email:
+              type: string
+              example: "user@example.com"
+            rfid_uid:
+              type: string
+              example: "ABC123456"
+            full_name:
+              type: string
+              example: "Nguyen Van A"
+    responses:
+      200:
+        description: user updated successfully
+      400:
+        description: invalid data
+      401:
+        description: unauthorized
+      409:
+        description: email or rfid already exists
+    """
+
     user = request.current_user
     data = request.get_json()
     
@@ -152,6 +308,27 @@ def update_me():
 @api_bp.route('/users/<int:user_id>', methods=['DELETE'])
 @require_admin
 def delete_user(user_id):
+    """
+    delete user by id (admin only)
+    ---
+    tags:
+      - User Management
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: user_id
+        type: integer
+        required: true
+        description: "user id to delete"
+    responses:
+      200:
+        description: user deleted successfully
+      404:
+        description: user not found
+      401:
+        description: unauthorized - admin access required
+    """
     user = User.query.get(user_id)
     if not user:
         return error_response('user khong ton tai', 'USER_NOT_FOUND', 404)
@@ -170,6 +347,50 @@ def delete_user(user_id):
 @api_bp.route('/users/<int:user_id>', methods=['PUT'])
 @require_admin
 def update_user(user_id):
+    """
+    update user by id (admin only)
+    ---
+    tags:
+      - User Management
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: user_id
+        type: integer
+        required: true
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            email:
+              type: string
+              example: "user@example.com"
+            rfid_uid:
+              type: string
+              example: "ABC123456"
+            full_name:
+              type: string
+              example: "Nguyen Van A"
+            is_active:
+              type: boolean
+              example: true
+            is_admin:
+              type: boolean
+              example: false
+    responses:
+      200:
+        description: user updated successfully
+      400:
+        description: invalid data
+      404:
+        description: user not found
+      401:
+        description: unauthorized - admin access required
+      409:
+        description: email or rfid already exists
+    """
     user = User.query.get(user_id)
     if not user:
         return error_response('user khong ton tai', 'USER_NOT_FOUND', 404)

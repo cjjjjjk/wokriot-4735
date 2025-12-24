@@ -6,3 +6,4 @@ cryptography
 python-dotenv
 pyjwt
 flask-mqtt
+flasgger
