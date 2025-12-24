@@ -2,7 +2,7 @@
 from flask import Flask, redirect
 from flasgger import Swagger
 from .config import Config
-from .extensions import db, migrate, mqtt
+from .extensions import db, migrate, mqtt, cors
 from . import models 
 from .api import api_bp 
 
@@ -58,6 +58,16 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     mqtt.init_app(app)
+    
+    # khởi tạo CORS - cho phép frontend truy cập API
+    cors.init_app(app, resources={
+        r"/api/*": {
+            "origins": ["http://localhost:5173", "http://localhost:3000"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": True
+        }
+    })
 
     # 2. đăng ký blueprint
     app.register_blueprint(api_bp, url_prefix='/api')
