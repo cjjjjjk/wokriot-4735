@@ -1,0 +1,59 @@
+name: wokriot_app
+description: Ung dung cham cong da diem WOKRIOT-4735
+# Dòng này ngăn không cho publish app lên pub.dev (vì đây là app nội bộ/đồ án)
+publish_to: 'none' 
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- CÁC THƯ VIỆN GIAO DIỆN CƠ BẢN ---
+  # Icon phong cách iOS (Mặc định của Flutter)
+  cupertino_icons: ^1.0.6
+
+  # --- CÁC THƯ VIỆN CHO LOGIC WOKRIOT ---
+  
+  # 1. Để gọi API (Giao tiếp với Backend/ESP32 qua HTTP)
+  http: ^1.2.0
+  
+  # 2. Để lưu Token đăng nhập, username vào bộ nhớ máy
+  shared_preferences: ^2.2.0
+  
+  # 3. Để format ngày giờ (Ví dụ hiển thị: 07:55 PM, 24/12/2025)
+  intl: ^0.19.0
+  
+  # 4. Quản lý trạng thái (State Management) - Giúp cập nhật UI khi dữ liệu đổi
+  provider: ^6.1.5+1
+  
+  # 5. Hiển thị thông báo (Push Notification) khi check-in/out
+  flutter_local_notifications: ^17.0.0
+  
+  # 6. Quản lý điều hướng trang (Chuyển từ Login -> Home -> History)
+  go_router: ^14.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Bộ kiểm tra lỗi code chuẩn của Flutter
+  flutter_lints: ^3.0.0
+
+# --- CẤU HÌNH RIÊNG CHO FLUTTER ---
+flutter:
+  # Sử dụng Material Design (Giao diện chuẩn Google)
+  uses-material-design: true
+
+  # --- CẤU HÌNH ẢNH (ASSETS) ---
+  # Sau này nếu bạn có logo trường hay icon app, 
+  # hãy tạo thư mục 'assets/images/' và bỏ comment 2 dòng dưới:
+  
+  # assets:
+  #   - assets/images/
+
+  # --- CẤU HÌNH FONT CHỮ ---
+  # Nếu muốn đổi font chữ cho đẹp hơn thì cấu hình ở đây (để sau cũng được)
