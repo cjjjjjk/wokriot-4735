@@ -1,22 +1,13 @@
-class AttendanceModel {
-  final String date;
-  final String? checkIn;
-  final String? checkOut;
-  final String status; // "late", "on_time", "absent"
+class AttendanceHistory {
+  final String date; // Ngày (VD: 2023-12-25)
+  final String checkIn; // Giờ vào
+  final String checkOut; // Giờ ra
+  final String status; // Trạng thái (Vào làm / Ra về)
 
-  AttendanceModel({
+  AttendanceHistory({
     required this.date,
-    this.checkIn,
-    this.checkOut,
+    required this.checkIn,
+    required this.checkOut,
     required this.status,
   });
-
-  factory AttendanceModel.fromJson(Map<String, dynamic> json) {
-    return AttendanceModel(
-      date: json['date'] ?? '',
-      checkIn: json['check_in'],
-      checkOut: json['check_out'],
-      status: json['status'] ?? 'unknown',
-    );
-  }
 }

@@ -1,158 +1,111 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart'; // Để dùng cho nút Đăng xuất
+import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart'; // 1. Import thư viện QR
+import '../providers/auth_provider.dart';
+import '../screens/login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  // Mock Data (Dữ liệu giả lập)
-  final String userName = "Nguyễn Văn A";
-  final String studentId = "SV20194735";
-  final String className = "Kỹ thuật máy tính K64";
-  final String email = "a.nguyenvan@sis.hust.edu.vn";
-  final String phoneNumber = "0988 123 456";
-  final String rfidCode = "A3-E4-11-89"; // Mã thẻ từ giả lập
-
-  // Hàm xử lý đăng xuất
-  void _handleLogout(BuildContext context) {
-    // Xóa stack và về màn login
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-      (Route<dynamic> route) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    // Lấy thông tin user từ Provider
+    final authProvider = Provider.of<AuthProvider>(context);
+    // Giả lập mã nhân viên (nếu chưa có API thật thì dùng tên đăng nhập làm mã)
+    final String employeeCode = authProvider.userName ?? "NV123456";
+
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Thông tin cá nhân"),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        title: const Text("Hồ sơ cá nhân"),
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // 1. Header: Avatar + Tên
+            // Avatar
+            const CircleAvatar(
+              radius: 50,
+              backgroundColor: Colors.blueAccent,
+              child: Icon(Icons.person, size: 60, color: Colors.white),
+            ),
+            const SizedBox(height: 15),
+
+            // Tên nhân viên
+            Text(
+              authProvider.userName,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const Text("Lập trình viên Mobile",
+                style: TextStyle(color: Colors.grey)),
+
+            const SizedBox(height: 30),
+
+            // 👇👇 KHU VỰC HIỂN THỊ MÃ QR
             Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(bottom: 30),
-              decoration: const BoxDecoration(
-                color: Colors.blue,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      offset: const Offset(0, 5))
+                ],
               ),
               child: Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const CircleAvatar(
-                      radius: 50,
-                      backgroundImage: NetworkImage(
-                          "https://i.pravatar.cc/300"), // Ảnh mạng giả lập
-                      // Nếu lỗi mạng sẽ hiện màu xám
-                      backgroundColor: Colors.grey,
-                    ),
-                  ),
+                  const Text("Mã định danh (Quét để chấm công)",
+                      style:
+                          TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 15),
-                  Text(
-                    userName,
-                    style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white),
+
+                  // Widget tạo mã QR
+                  QrImageView(
+                    data: employeeCode, // Dữ liệu được mã hóa (Mã NV)
+                    version: QrVersions.auto,
+                    size: 200.0, // Kích thước
+                    gapless: false,
+                    // Bạn có thể thêm logo vào giữa mã QR nếu thích
+                    // embeddedImage: const AssetImage('assets/logo.png'),
                   ),
-                  const SizedBox(height: 5),
+
+                  const SizedBox(height: 10),
                   Text(
-                    studentId,
-                    style: const TextStyle(fontSize: 16, color: Colors.white70),
+                    "ID: $employeeCode",
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, letterSpacing: 1.5),
                   ),
                 ],
               ),
             ),
+            // 👆👆 HẾT PHẦN QR
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 40),
 
-            // 2. Danh sách thông tin
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  _buildInfoTile(Icons.class_, "Lớp / Ngành", className),
-                  _buildInfoTile(Icons.email, "Email", email),
-                  _buildInfoTile(Icons.phone, "Số điện thoại", phoneNumber),
-
-                  const Divider(height: 30, thickness: 1),
-
-                  // Phần quan trọng của đồ án IoT
-                  _buildInfoTile(Icons.nfc, "Mã thẻ RFID", rfidCode,
-                      isHighlight: true),
-
-                  const SizedBox(height: 30),
-
-                  // 3. Nút chức năng
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _handleLogout(context),
-                      icon: const Icon(Icons.logout, color: Colors.red),
-                      label: const Text("Đăng xuất",
-                          style: TextStyle(color: Colors.red)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  )
-                ],
+            // Nút đăng xuất
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.logout, color: Colors.white),
+                label: const Text("Đăng xuất"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () {
+                  authProvider.logout();
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  );
+                },
               ),
-            )
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  // Widget con để hiển thị từng dòng thông tin
-  Widget _buildInfoTile(IconData icon, String title, String value,
-      {bool isHighlight = false}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: isHighlight ? Colors.orange[50] : Colors.grey[100],
-        borderRadius: BorderRadius.circular(12),
-        border: isHighlight ? Border.all(color: Colors.orange) : null,
-      ),
-      child: Row(
-        children: [
-          Icon(icon,
-              color: isHighlight ? Colors.orange : Colors.blueGrey, size: 28),
-          const SizedBox(width: 20),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12)),
-              const SizedBox(height: 4),
-              Text(value,
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isHighlight ? Colors.deepOrange : Colors.black87)),
-            ],
-          )
-        ],
       ),
     );
   }

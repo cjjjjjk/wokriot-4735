@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart'; // Để dùng cho nút Đăng xuất
-import 'history_screen.dart';
-import 'request_screen.dart';
-import 'profile_screen.dart';
+import '../services/mqtt_service.dart';
+import '../models/attendance_model.dart'; // đã có file model
+import 'history_screen.dart'; // tồn tại trong cùng thư mục screens
+import 'request_screen.dart'; // tồn tại trong cùng thư mục screens
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,234 +12,210 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Dữ liệu giả lập (Sau này sẽ lấy từ API)
-  String userName = "Nguyễn Văn A";
-  String studentId = "SV001";
-  bool isCheckedIn = true; // Thử đổi thành false để xem giao diện thay đổi
-  String checkInTime = "07:55 AM";
-  String checkOutTime = "--:--";
+  final AttendanceMQTTService _mqttService = AttendanceMQTTService();
 
-  // Hàm xử lý đăng xuất
-  void _handleLogout() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-    );
+  // Biến trạng thái giao diện
+  String _todayStatus = "Chưa Check-in";
+  String _lastCheckTime = "--:--";
+  Color _statusColor = Colors.grey;
+  IconData _statusIcon = Icons.fingerprint;
+
+  // Danh sách lịch sử tạm thời
+  final List<AttendanceHistory> _history = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _setupMqtt();
+  }
+
+  // Cấu hình MQTT để nghe tin nhắn
+  void _setupMqtt() async {
+    await _mqttService.initialize();
+
+    // Hứng dữ liệu từ file service bắn sang
+    _mqttService.onDataReceived = (status, msg, time) {
+      if (!mounted) return; // Nếu màn hình đã đóng thì không làm gì cả
+
+      setState(() {
+        _lastCheckTime = time;
+
+        // Lưu vào lịch sử
+        _history.insert(
+            0,
+            AttendanceHistory(
+              date: DateTime.now().toString().split(' ')[0],
+              checkIn: status == "CHECK_IN" ? time : "--:--",
+              checkOut: status == "CHECK_OUT" ? time : "--:--",
+              status: status == "CHECK_IN" ? "Vào làm" : "Ra về",
+            ));
+
+        // Cập nhật giao diện thẻ màu
+        if (status == "CHECK_IN") {
+          _todayStatus = "Đã vào (Check-in)";
+          _statusColor = Colors.green;
+          _statusIcon = Icons.login;
+        } else if (status == "CHECK_OUT") {
+          _todayStatus = "Đã về (Check-out)";
+          _statusColor = Colors.orange;
+          _statusIcon = Icons.logout;
+        }
+      });
+
+      // Hiện thông báo nhỏ bên dưới màn hình (SnackBar)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: _statusColor),
+      );
+    };
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100], // Màu nền nhẹ
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text("WOKRIOT Dashboard"),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Xin chào, Ngân Văn Thiện", style: TextStyle(fontSize: 14)),
+            Text("WOKRIOT-4735",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.exit_to_app),
-            onPressed: _handleLogout,
-            tooltip: "Đăng xuất",
+            icon: const Icon(Icons.qr_code_2),
+            onPressed: () {
+              // Chỗ này tạm thời để trống hoặc hiện Dialog
+              showDialog(
+                  context: context,
+                  builder: (c) => const AlertDialog(
+                      title: Text("Mã QR của tôi"),
+                      content: Icon(Icons.qr_code, size: 100)));
+            },
           )
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. Phần chào hỏi (Đã thêm sự kiện bấm)
-            InkWell(
-              onTap: () {
-                // Chuyển sang trang Profile
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const ProfileScreen()),
-                );
-              },
-              child: Row(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // --- PHẦN 1: CARD TRẠNG THÁI  ---
+              const Text("Hôm nay",
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey)),
+              const SizedBox(height: 10),
+
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: [
+                    const BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 10,
+                        offset: Offset(0, 5))
+                  ],
+                  border:
+                      Border(left: BorderSide(color: _statusColor, width: 5)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                          color: _statusColor.withOpacity(0.1),
+                          shape: BoxShape.circle),
+                      child: Icon(_statusIcon, color: _statusColor, size: 30),
+                    ),
+                    const SizedBox(width: 15),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_todayStatus,
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: _statusColor)),
+                        const SizedBox(height: 5),
+                        Text("Thời gian: $_lastCheckTime",
+                            style: const TextStyle(
+                                fontSize: 14, color: Colors.grey)),
+                      ],
+                    )
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // --- PHẦN 2: MENU DẠNG LƯỚI (GRID) ---
+              const Text("Tiện ích",
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey)),
+              const SizedBox(height: 10),
+
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2, // 2 cột
+                crossAxisSpacing: 15,
+                mainAxisSpacing: 15,
+                childAspectRatio: 1.3,
                 children: [
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.blue,
-                    // Thử thêm ảnh avatar nếu muốn, không thì để icon mặc định
-                    child: Icon(Icons.person, size: 35, color: Colors.white),
-                  ),
-                  const SizedBox(width: 15),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Xin chào, $userName",
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text("MSNV: $studentId",
-                          style: const TextStyle(color: Colors.grey)),
-                    ],
-                  )
-                ],
-              ),
-            ),
-            const SizedBox(height: 25),
-
-            // 2. Thẻ trạng thái chấm công (Quan trọng nhất)
-            const Text("Hôm nay",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 10),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                // Đổi màu nền dựa trên trạng thái (Xanh lá / Cam)
-                color: isCheckedIn ? Colors.green[600] : Colors.orange[400],
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.3),
-                    spreadRadius: 2,
-                    blurRadius: 5,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    isCheckedIn
-                        ? Icons.check_circle_outline
-                        : Icons.access_time,
-                    size: 50,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    isCheckedIn ? "ĐÃ CHECK-IN THÀNH CÔNG" : "CHƯA CHECK-IN",
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 15),
-                  // Hiển thị giờ
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildTimeInfo("Giờ vào", checkInTime),
-                      Container(height: 40, width: 1, color: Colors.white54),
-                      _buildTimeInfo("Giờ ra", checkOutTime),
-                    ],
-                  )
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 25),
-
-            // 3. Grid Menu chức năng
-            const Text("Chức năng",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 10),
-
-            GridView.count(
-              shrinkWrap: true, // Để Grid nằm gọn trong ScrollView
-              physics:
-                  const NeverScrollableScrollPhysics(), // Không cuộn riêng lẻ
-              crossAxisCount: 2, // 2 cột
-              crossAxisSpacing: 15,
-              mainAxisSpacing: 15,
-              childAspectRatio: 1.3, // Tỷ lệ chiều rộng/cao
-              children: [
-                _buildMenuCard(
-                    icon: Icons.history,
-                    title: "Lịch sử",
-                    color: Colors.blue,
-                    onTap: () {
-                      // Lệnh chuyển trang
-                      Navigator.push(
+                  _buildMenuCard(
+                      Icons.history, "Lịch sử\nChấm công", Colors.blue, () {
+                    Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const HistoryScreen()),
-                      );
-                    }),
-                _buildMenuCard(
-                    icon: Icons.edit_calendar,
-                    title: "Xin nghỉ / OT",
-                    color: Colors.orange,
-                    onTap: () {
-                      Navigator.push(
+                            builder: (context) =>
+                                HistoryScreen(historyData: _history)));
+                  }),
+                  _buildMenuCard(Icons.edit_calendar, "Gửi đơn\nXin nghỉ/OT",
+                      Colors.orange, () {
+                    Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const RequestScreen()),
-                      );
-                    }),
-                _buildMenuCard(
-                    icon: Icons.notifications,
-                    title: "Thông báo",
-                    color: Colors.purple,
-                    onTap: () {}),
-                _buildMenuCard(
-                    icon: Icons.settings,
-                    title: "Cài đặt",
-                    color: Colors.grey,
-                    onTap: () {}),
-              ],
-            )
-          ],
+                            builder: (context) => const RequestScreen()));
+                  }),
+                  _buildMenuCard(
+                      Icons.person, "Hồ sơ\ncá nhân", Colors.purple, () {}),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // Widget con để hiển thị Giờ check-in/out
-  Widget _buildTimeInfo(String label, String time) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(color: Colors.white70)),
-        const SizedBox(height: 5),
-        Text(time,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-
-  // Widget con để tạo các nút menu
+  // Widget con để vẽ nút bấm Menu
   Widget _buildMenuCard(
-      {required IconData icon,
-      required String title,
-      required Color color,
-      required VoidCallback onTap}) {
+      IconData icon, String title, Color color, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(15),
       child: Container(
         decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 3)
-            ]),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [const BoxShadow(color: Colors.black12, blurRadius: 5)],
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 30, color: color),
-            ),
+            Icon(icon, size: 35, color: color),
             const SizedBox(height: 10),
             Text(title,
+                textAlign: TextAlign.center,
                 style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
           ],
         ),
       ),
