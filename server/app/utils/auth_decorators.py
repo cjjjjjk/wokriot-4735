@@ -6,15 +6,29 @@ from flask import current_app
 import jwt
 
 def get_token_from_header():
+    """
+    extract jwt token from authorization header
+    supports both formats:
+    - "Bearer <token>" (standard format)
+    - "<token>" (auto-adds Bearer prefix)
+    """
     auth_header = request.headers.get('Authorization')
     if not auth_header:
         return None
     
     parts = auth_header.split()
-    if len(parts) != 2 or parts[0].lower() != 'bearer':
-        return None
     
-    return parts[1]
+    # if header has "Bearer <token>" format
+    if len(parts) == 2 and parts[0].lower() == 'bearer':
+        return parts[1]
+    
+    # if header only has token (without "Bearer" prefix)
+    # treat the entire header as token
+    if len(parts) == 1:
+        return parts[0]
+    
+    # invalid format
+    return None
 
 def decode_token(token):
     try:

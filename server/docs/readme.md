@@ -1,21 +1,40 @@
 ## flask | mysql
 *Note: dev-mode show env file*
 
-### setup
+### quick start với docker (khuyên dùng)
+```bash
+cd server
+docker compose up --build
+```
+sau khi chạy xong:
+- **api documentation (swagger ui)**: http://localhost:5000/apidocs
+- **api base url**: http://localhost:5000/api
+- **mysql**: localhost:3306
+
+### setup thủ công (development)
 1. install dependencies:
-   - Tạo sandbox: `python -m venv venv`
-   - Active sandbox: `venv\Scripts\activate`
-   - Cài đặt dependencies: `pip install -r requirements.txt`
+   - tạo sandbox: `python -m venv venv`
+   - active sandbox: `venv\Scripts\activate`
+   - cài đặt dependencies: `pip install -r requirements.txt`
 2. setup docker mysql db
    `docker-compose up -d`
 3. setup db:
-   - Áp dụng DB migrated: `flask db upgrade` 
-   - Các thao tác migration:
-      - Tạo migration: `flask db migrate -m "migration mesage"`
-      - Áp dụng migration cho db: `flask db upgrade`
+   - áp dụng db migrated: `flask db upgrade` 
+   - các thao tác migration:
+      - tạo migration: `flask db migrate -m "migration mesage"`
+      - áp dụng migration cho db: `flask db upgrade`
 
 4. run server:
    `python app.py`
+
+### api documentation
+server tích hợp **swagger ui** để hiển thị và test các api endpoints:
+- **url**: http://localhost:5000/apidocs hoặc http://localhost:5000/
+- **features**:
+  - xem tất cả api endpoints
+  - test api trực tiếp trên browser
+  - xem request/response schema
+  - hỗ trợ jwt authentication (click "Authorize" button và nhập: `Bearer <token>`)
 
 ### mô tả hệ thống:
 

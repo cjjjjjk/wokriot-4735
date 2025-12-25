@@ -1,0 +1,34 @@
+/* dashboard layout - centered container style */
+.dashboard {
+    min-height: 100vh;
+    background-color: #f3f4f6;
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-content {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+}
+
+.dashboard-content>* {
+    width: 100%;
+    max-width: 75rem;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* responsive adjustments */
+@media (max-width: 1280px) {
+    .dashboard-content>* {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-content>* {
+        padding: 0 12px;
+    }
+}

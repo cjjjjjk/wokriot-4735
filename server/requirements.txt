@@ -1,8 +1,10 @@
 flask
 flask-sqlalchemy
 flask-migrate
+flask-cors
 pymysql
 cryptography
 python-dotenv
 pyjwt
 flask-mqtt
+flasgger
