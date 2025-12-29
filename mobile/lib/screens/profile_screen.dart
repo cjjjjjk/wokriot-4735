@@ -1,23 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:qr_flutter/qr_flutter.dart'; // 1. Import thư viện QR
-import '../providers/auth_provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Để xóa cache khi logout
 import '../screens/login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
+  // 1. Khai báo biến để nhận dữ liệu từ HomeScreen gửi sang
+  final String fullName;
+  final String userId;
+
+  const ProfileScreen({
+    super.key,
+    required this.fullName,
+    required this.userId,
+  });
+
+  // Hàm xử lý Đăng xuất
+  Future<void> _handleLogout(BuildContext context) async {
+    // a. Xóa dữ liệu lưu trong máy
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // Xóa hết token, user_id, full_name...
+
+    // b. Chuyển hướng về màn hình đăng nhập và xóa sạch lịch sử trang cũ
+    if (context.mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false, // Xóa hết các trang trước đó khỏi stack
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Lấy thông tin user từ Provider
-    final authProvider = Provider.of<AuthProvider>(context);
-    // Giả lập mã nhân viên (nếu chưa có API thật thì dùng tên đăng nhập làm mã)
-    final String employeeCode = authProvider.userName ?? "NV123456";
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Hồ sơ cá nhân"),
         centerTitle: true,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -31,13 +50,14 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 15),
 
-            // Tên nhân viên
+            // Tên nhân viên (Lấy từ biến truyền vào)
             Text(
-              authProvider.userName,
+              fullName,
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
             ),
-            const Text("Lập trình viên Mobile",
-                style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 5),
+            Text("Mã NV: $userId", style: const TextStyle(color: Colors.grey)),
 
             const SizedBox(height: 30),
 
@@ -47,11 +67,11 @@ class ProfileScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                boxShadow: [
+                boxShadow: const [
                   BoxShadow(
                       color: Colors.black12,
                       blurRadius: 10,
-                      offset: const Offset(0, 5))
+                      offset: Offset(0, 5))
                 ],
               ),
               child: Column(
@@ -59,23 +79,25 @@ class ProfileScreen extends StatelessWidget {
                   const Text("Mã định danh (Quét để chấm công)",
                       style:
                           TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 20),
 
                   // Widget tạo mã QR
                   QrImageView(
-                    data: employeeCode, // Dữ liệu được mã hóa (Mã NV)
+                    data:
+                        userId, // <--- SỬA QUAN TRỌNG: Dùng ID để tạo QR, không dùng Tên
                     version: QrVersions.auto,
-                    size: 200.0, // Kích thước
+                    size: 200.0,
                     gapless: false,
-                    // Bạn có thể thêm logo vào giữa mã QR nếu thích
-                    // embeddedImage: const AssetImage('assets/logo.png'),
+                    backgroundColor: Colors.white,
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 15),
                   Text(
-                    "ID: $employeeCode",
+                    userId,
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                        fontSize: 18),
                   ),
                 ],
               ),
@@ -91,17 +113,12 @@ class ProfileScreen extends StatelessWidget {
                 icon: const Icon(Icons.logout, color: Colors.white),
                 label: const Text("Đăng xuất"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () {
-                  authProvider.logout();
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  );
-                },
+                    backgroundColor: Colors.redAccent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10))),
+                onPressed: () => _handleLogout(context),
               ),
             ),
           ],
