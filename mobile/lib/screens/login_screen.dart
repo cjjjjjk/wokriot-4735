@@ -4,7 +4,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'home_screen.dart';
+import 'home_screen.dart'; // Đảm bảo đã import đúng file HomeScreen
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,17 +21,17 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
 
   // --- CẤU HÌNH SERVER ---
-  // Đã sửa lại đúng theo ý bạn
+  // Bạn kiểm tra lại IP nếu cần thiết
   static const String serverIp = '172.23.143.174';
   static const String serverPort = '5000';
   static const String baseUrl = 'http://$serverIp:$serverPort';
 
   Future<void> _handleLogin() async {
-    final username = _usernameController.text.trim();
+    final email = _usernameController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (username.isEmpty || password.isEmpty) {
-      _showSnackBar("Vui lòng nhập tài khoản và mật khẩu!", isError: true);
+    if (email.isEmpty || password.isEmpty) {
+      _showSnackBar("Vui lòng nhập Email và Mật khẩu!", isError: true);
       return;
     }
 
@@ -46,52 +46,73 @@ class _LoginScreenState extends State<LoginScreen> {
             url,
             headers: {"Content-Type": "application/json"},
             body: jsonEncode({
-              "email": username,
-              "password": password,
+              "email": email, // Server yêu cầu field là 'email'
+              "password": password, // Server yêu cầu field là 'password'
             }),
           )
           .timeout(const Duration(seconds: 10));
 
-      final data = jsonDecode(response.body);
+      print("LOG: Response Status: ${response.statusCode}");
+      print("LOG: Response Body: ${response.body}");
+
+      final bodyJSON = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        // --- THÀNH CÔNG ---
-        final prefs = await SharedPreferences.getInstance();
+        // --- ĐĂNG NHẬP THÀNH CÔNG ---
 
-        if (data['token'] != null) {
-          await prefs.setString('ACCESS_TOKEN', data['token']);
-        }
+        // Cấu trúc Server trả về: { "data": { "token": "...", "user": { "id": 1, ... } } }
+        final dataContainer = bodyJSON['data'];
 
-        final userData = data['data'];
-        if (userData != null) {
-          await prefs.setString('USER_ID',
-              (userData['id'] ?? userData['user_id'] ?? '').toString());
-          await prefs.setString('FULL_NAME',
-              userData['name'] ?? userData['full_name'] ?? 'Nhân viên');
+        if (dataContainer != null) {
+          final prefs = await SharedPreferences.getInstance();
+
+          // 1. Lấy và Lưu Token
+          if (dataContainer['token'] != null) {
+            await prefs.setString('ACCESS_TOKEN', dataContainer['token']);
+          }
+
+          // 2. Lấy object User (quan trọng: phải chui vào trong key 'user')
+          final userObj = dataContainer['user'];
+
+          if (userObj != null) {
+            // Lấy ID (chuyển sang String vì server trả về Int)
+            String userId = (userObj['id'] ?? '').toString();
+
+            // Lấy Tên (key bên server là 'full_name')
+            String fullName = userObj['full_name'] ?? 'Nhân viên';
+
+            // 3. Lưu vào bộ nhớ để HomeScreen và ProfileScreen dùng
+            await prefs.setString('USER_ID', userId);
+            await prefs.setString('FULL_NAME', fullName);
+
+            print("LOG: Đã lưu -> ID: $userId, Name: $fullName");
+          }
         }
 
         if (!mounted) return;
         _showSnackBar("Đăng nhập thành công!", isError: false);
+
+        // Đợi xíu cho mượt
         await Future.delayed(const Duration(milliseconds: 500));
 
+        // Chuyển màn hình
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       } else {
-        String message = data['message'] ?? "Đăng nhập thất bại";
+        // --- ĐĂNG NHẬP THẤT BẠI ---
+        String message = bodyJSON['message'] ?? "Đăng nhập thất bại";
         _showSnackBar(message, isError: true);
       }
     } on SocketException {
-      _showSnackBar(
-          "Không thể kết nối đến Server ($serverIp). Hãy kiểm tra Wifi.",
-          isError: true);
+      _showSnackBar("Lỗi kết nối mạng. Kiểm tra IP $serverIp", isError: true);
     } on TimeoutException {
-      _showSnackBar("Kết nối quá lâu (Timeout). Server có đang bật không?",
+      _showSnackBar("Kết nối quá lâu. Server có đang bật không?",
           isError: true);
     } catch (e) {
-      print("LOG: Lỗi không xác định: $e");
-      _showSnackBar("Đã có lỗi xảy ra: $e", isError: true);
+      print("LOG: Error: $e");
+      _showSnackBar("Lỗi ứng dụng: $e", isError: true);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -100,6 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -121,6 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Logo Area
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -144,11 +167,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const SizedBox(height: 40),
+
+                // Input Email
                 TextField(
                   controller: _usernameController,
+                  keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
-                    labelText: "Tài khoản (Email)",
-                    prefixIcon: const Icon(Icons.person_outline),
+                    labelText:
+                        "Email", // Đã sửa label thành Email cho khớp logic
+                    prefixIcon: const Icon(Icons.email_outlined),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12)),
                     filled: true,
@@ -156,6 +183,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // Input Password
                 TextField(
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
@@ -182,6 +211,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 30),
+
+                // Button Login
                 SizedBox(
                   width: double.infinity,
                   height: 50,

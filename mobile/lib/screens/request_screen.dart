@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+// 1. Import helper vừa tạo
+import '../utils/notification_helper.dart';
 
 class RequestScreen extends StatefulWidget {
   const RequestScreen({super.key});
@@ -51,13 +53,27 @@ class _RequestScreenState extends State<RequestScreen> {
               height: 50,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                onPressed: () {
-                  // Giả lập gửi thành công
+                // 2. Thêm từ khóa async để dùng await
+                onPressed: () async {
+                  // --- LƯU THÔNG BÁO VÀO MÁY ---
+                  await NotificationHelper.addNotification(
+                      "Gửi đơn thành công",
+                      "Bạn đã gửi đơn $_selectedType. Lý do: ${_reasonController.text}",
+                      "request");
+                  // -----------------------------
+
+                  if (!context.mounted) return;
+
+                  // Hiển thị thông báo (SnackBar)
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                        content: Text("Đã gửi đơn $_selectedType thành công!")),
+                      content: Text("Đã gửi đơn $_selectedType thành công!"),
+                      backgroundColor: Colors.green,
+                    ),
                   );
-                  Navigator.pop(context); // Quay về màn hình chính
+
+                  // Quay về màn hình chính
+                  Navigator.pop(context);
                 },
                 child: const Text("GỬI ĐƠN NGAY",
                     style: TextStyle(color: Colors.white)),

@@ -3,13 +3,16 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Import các file của bạn
+// --- IMPORT CÁC FILE CẦN THIẾT ---
 import '../services/mqtt_service.dart';
 import '../models/attendance_model.dart';
+import '../utils/notification_helper.dart'; // <--- 1. Import Helper để lưu thông báo
+
 import 'history_screen.dart';
 import 'request_screen.dart';
 import 'login_screen.dart';
-import 'profile_screen.dart'; // <--- Đã thêm import ProfileScreen
+import 'profile_screen.dart';
+import 'notification_screen.dart'; // <--- 2. Import màn hình Thông báo
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -66,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final url = Uri.parse('$baseUrl/api/worked-day/day');
-      print("LOG: Đang lấy dữ liệu hôm nay: $url");
+      // print("LOG: Đang lấy dữ liệu hôm nay: $url");
 
       final response = await http.get(
         url,
@@ -100,11 +103,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- LOGIC MQTT ---
+  // --- LOGIC MQTT (ĐÃ CẬP NHẬT GHI THÔNG BÁO) ---
   void _setupMqtt() async {
     await _mqttService.initialize();
 
-    _mqttService.onDataReceived = (status, msg, time) {
+    // Thêm async vào đây để dùng await lưu thông báo
+    _mqttService.onDataReceived = (status, msg, time) async {
       if (!mounted) return;
 
       setState(() {
@@ -113,7 +117,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
       _updateUI(status, time);
 
-      // Thêm vào lịch sử cục bộ để hiển thị ngay
+      // --- 3. TỰ ĐỘNG LƯU THÔNG BÁO KHI CÓ SỰ KIỆN MQTT ---
+      String notifType = "info";
+      String notifTitle = "Thông báo";
+
+      if (status == "CHECK_IN") {
+        notifTitle = "Check-in Thành công";
+        notifType = "checkin";
+      } else if (status == "CHECK_OUT") {
+        notifTitle = "Check-out Thành công";
+        notifType = "checkout";
+      }
+
+      // Gọi Helper để lưu vào bộ nhớ máy
+      await NotificationHelper.addNotification(
+          notifTitle,
+          "Ghi nhận lúc $time. $msg", // Nội dung
+          notifType);
+      // -----------------------------------------------------
+
+      // Thêm vào lịch sử hiển thị ngay trên màn hình Home
       setState(() {
         _history.insert(
             0,
@@ -160,16 +183,22 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("Xin chào, $_fullName", style: const TextStyle(fontSize: 14)),
-            // Hiển thị tên thiết bị hoặc tiêu đề app
-            const Text("WOKRIOT-4735",
+            const Text("WOKRIOT-SYSTEM",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
-        // --- ĐÃ XÓA MÃ QR Ở ĐÂY THEO YÊU CẦU ---
         actions: [
-          // Có thể thêm nút thông báo hoặc cài đặt khác nếu muốn
+          // --- 4. NÚT CHUÔNG MỞ MÀN HÌNH THÔNG BÁO ---
           IconButton(
-              icon: const Icon(Icons.notifications_none), onPressed: () {})
+            icon: const Icon(Icons.notifications_none),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const NotificationScreen()),
+              );
+            },
+          )
         ],
       ),
       body: RefreshIndicator(
@@ -200,8 +229,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            const BoxShadow(
+                          boxShadow: const [
+                            BoxShadow(
                                 color: Colors.black12,
                                 blurRadius: 10,
                                 offset: Offset(0, 5))
@@ -269,16 +298,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           MaterialPageRoute(
                               builder: (context) => const RequestScreen()));
                     }),
-                    // --- NÚT HỒ SƠ CÁ NHÂN ĐÃ ĐƯỢC CẬP NHẬT ---
+                    // --- NÚT HỒ SƠ CÁ NHÂN ---
                     _buildMenuCard(
                         Icons.person, "Hồ sơ\ncá nhân", Colors.purple, () {
-                      // Chuyển sang màn hình Profile và truyền dữ liệu
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => ProfileScreen(
-                            fullName: _fullName, // Truyền tên
-                            userId: _userId, // Truyền ID để tạo QR
+                            fullName: _fullName,
+                            userId: _userId,
                           ),
                         ),
                       );
@@ -301,7 +329,7 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(15),
-          boxShadow: [const BoxShadow(color: Colors.black12, blurRadius: 5)],
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
