@@ -43,6 +43,7 @@ const translations: Record<Language, Record<string, string>> = {
         'general.halfDay': 'Half Day',
         'general.absent': 'Absent',
         'general.noData': 'No data available',
+        'general.thisWeek': 'This Week',
 
         // logs
         'logs.timestamp': 'Timestamp',
@@ -127,6 +128,7 @@ const translations: Record<Language, Record<string, string>> = {
         'general.halfDay': 'Nửa ngày',
         'general.absent': 'Vắng',
         'general.noData': 'Không có dữ liệu',
+        'general.thisWeek': 'Tuần hiện tại',
 
         // logs
         'logs.timestamp': 'Thời gian',
