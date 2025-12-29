@@ -1,67 +1,58 @@
-import React from 'react';
+import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
-import './ToastContainer.css';
 
-const ToastContainer: React.FC = () => {
+const ToastContainer = () => {
     const { toasts, removeToast } = useToast();
 
     const getIcon = (type: string) => {
         switch (type) {
             case 'success':
-                return (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                    </svg>
-                );
+                return <CheckCircle className="w-5 h-5" />;
             case 'error':
-                return (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="15" y1="9" x2="9" y2="15"></line>
-                        <line x1="9" y1="9" x2="15" y2="15"></line>
-                    </svg>
-                );
+                return <XCircle className="w-5 h-5" />;
             case 'warning':
-                return (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                        <line x1="12" y1="9" x2="12" y2="13"></line>
-                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                    </svg>
-                );
+                return <AlertTriangle className="w-5 h-5" />;
             case 'info':
-                return (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="16" x2="12" y2="12"></line>
-                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                    </svg>
-                );
+                return <Info className="w-5 h-5" />;
             default:
                 return null;
         }
     };
 
+    const getColorClasses = (type: string) => {
+        switch (type) {
+            case 'success':
+                return 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-500';
+            case 'error':
+                return 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-500';
+            case 'warning':
+                return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border-yellow-500';
+            case 'info':
+                return 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-500';
+            default:
+                return 'bg-neu-light-surface dark:bg-neu-dark-surface text-neu-light-text dark:text-neu-dark-text';
+        }
+    };
+
     return (
-        <div className="toast-container">
+        <div className="fixed top-6 right-6 z-50 space-y-3 max-w-md">
             {toasts.map((toast) => (
-                <div key={toast.id} className={`toast toast-${toast.type}`}>
-                    <div className="toast-icon">
+                <div
+                    key={toast.id}
+                    className={`flex items-start gap-3 p-4 rounded-neu shadow-neu-lg dark:shadow-neu-dark-lg border-l-4 animate-slide-down ${getColorClasses(toast.type)}`}
+                >
+                    <div className="flex-shrink-0 mt-0.5">
                         {getIcon(toast.type)}
                     </div>
-                    <div className="toast-message">
+                    <div className="flex-1 text-sm font-medium">
                         {toast.message}
                     </div>
                     <button
-                        className="toast-close"
                         onClick={() => removeToast(toast.id)}
+                        className="flex-shrink-0 neu-icon-button p-1"
                         aria-label="Close notification"
                     >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
             ))}

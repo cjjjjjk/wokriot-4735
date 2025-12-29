@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { Edit2, Save, X, User as UserIcon, Mail, CreditCard, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useToast } from '../../contexts/ToastContext';
 import { updateMe } from '../../services/api';
-import './ProfileTab.css';
 
-const ProfileTab: React.FC = () => {
+const ProfileTab = () => {
     const { user, refreshUser } = useAuth();
     const { t } = useLanguage();
     const { showToast } = useToast();
@@ -48,22 +48,51 @@ const ProfileTab: React.FC = () => {
     };
 
     return (
-        <div className="profile-tab">
-            <div className="profile-card">
-                <div className="profile-header">
-                    <div className="avatar">
-                        <span>{user?.full_name?.charAt(0).toUpperCase()}</span>
+        <div className="max-w-3xl mx-auto">
+            <div className="neu-card animate-fade-in">
+                {/* profile header */}
+                <div className="flex items-center gap-6 pb-6 border-b border-neu-light-shadow/20 dark:border-neu-dark-shadow/20">
+                    {/* avatar */}
+                    <div className="w-24 h-24 rounded-full neu-card flex items-center justify-center">
+                        <span className="text-4xl font-bold bg-gradient-to-br from-primary-400 to-primary-600 bg-clip-text text-transparent">
+                            {user?.full_name?.charAt(0).toUpperCase()}
+                        </span>
                     </div>
-                    <div className="profile-info">
-                        <h2>{user?.full_name}</h2>
-                        <p>{user?.email}</p>
-                        {user?.is_admin && <span className="admin-badge">Admin</span>}
+
+                    {/* user info */}
+                    <div className="flex-1">
+                        <h2 className="text-2xl font-bold text-neu-light-text dark:text-neu-dark-text">
+                            {user?.full_name}
+                        </h2>
+                        <p className="text-neu-light-text/70 dark:text-neu-dark-text/70 mt-1">
+                            {user?.email}
+                        </p>
+                        {user?.is_admin && (
+                            <span className="inline-block mt-2 px-3 py-1 text-sm font-medium rounded-lg bg-primary-500 text-white">
+                                Admin
+                            </span>
+                        )}
                     </div>
+
+                    {/* edit button */}
+                    {!isEditing && (
+                        <button
+                            onClick={() => setIsEditing(true)}
+                            className="neu-icon-button"
+                        >
+                            <Edit2 className="w-5 h-5" />
+                        </button>
+                    )}
                 </div>
 
-                <form onSubmit={handleSubmit} className="profile-form">
-                    <div className="form-group">
-                        <label>{t('profile.fullName')}</label>
+                {/* profile form */}
+                <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+                    {/* full name */}
+                    <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm font-medium text-neu-light-text dark:text-neu-dark-text">
+                            <UserIcon className="w-4 h-4" />
+                            {t('profile.fullName')}
+                        </label>
                         {isEditing ? (
                             <input
                                 type="text"
@@ -71,20 +100,37 @@ const ProfileTab: React.FC = () => {
                                 value={formData.full_name}
                                 onChange={handleChange}
                                 required
+                                className="neu-input"
                             />
                         ) : (
-                            <span className="field-value">{user?.full_name}</span>
+                            <div className="px-4 py-3 rounded-neu bg-neu-light-bg dark:bg-neu-dark-bg text-neu-light-text dark:text-neu-dark-text">
+                                {user?.full_name}
+                            </div>
                         )}
                     </div>
 
-                    <div className="form-group">
-                        <label>{t('profile.email')}</label>
-                        <span className="field-value readonly">{user?.email}</span>
-                        {isEditing && <small className="hint">{t('profile.emailHint')}</small>}
+                    {/* email (readonly) */}
+                    <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm font-medium text-neu-light-text dark:text-neu-dark-text">
+                            <Mail className="w-4 h-4" />
+                            {t('profile.email')}
+                        </label>
+                        <div className="px-4 py-3 rounded-neu bg-neu-light-bg dark:bg-neu-dark-bg text-neu-light-text/50 dark:text-neu-dark-text/50">
+                            {user?.email}
+                        </div>
+                        {isEditing && (
+                            <p className="text-xs text-neu-light-text/60 dark:text-neu-dark-text/60">
+                                {t('profile.emailHint')}
+                            </p>
+                        )}
                     </div>
 
-                    <div className="form-group">
-                        <label>{t('profile.rfidUid')}</label>
+                    {/* rfid uid */}
+                    <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm font-medium text-neu-light-text dark:text-neu-dark-text">
+                            <CreditCard className="w-4 h-4" />
+                            {t('profile.rfidUid')}
+                        </label>
                         {isEditing ? (
                             <input
                                 type="text"
@@ -92,55 +138,71 @@ const ProfileTab: React.FC = () => {
                                 value={formData.rfid_uid}
                                 onChange={handleChange}
                                 required
+                                className="neu-input"
                             />
                         ) : (
-                            <span className="field-value">{user?.rfid_uid}</span>
+                            <div className="px-4 py-3 rounded-neu bg-neu-light-bg dark:bg-neu-dark-bg text-neu-light-text dark:text-neu-dark-text font-mono">
+                                {user?.rfid_uid}
+                            </div>
                         )}
                     </div>
 
-                    <div className="form-group">
-                        <label>{t('profile.status')}</label>
-                        <span className={`field-value status ${user?.is_active ? 'active' : 'inactive'}`}>
+                    {/* status */}
+                    <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm font-medium text-neu-light-text dark:text-neu-dark-text">
+                            {user?.is_active ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                            {t('profile.status')}
+                        </label>
+                        <div className={`px-4 py-3 rounded-neu flex items-center gap-2 ${user?.is_active
+                                ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                                : 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                            }`}>
                             {user?.is_active ? t('profile.active') : t('profile.inactive')}
-                        </span>
+                        </div>
                     </div>
 
-                    <div className="form-group">
-                        <label>{t('profile.role')}</label>
-                        <span className="field-value">
+                    {/* role */}
+                    <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm font-medium text-neu-light-text dark:text-neu-dark-text">
+                            <Shield className="w-4 h-4" />
+                            {t('profile.role')}
+                        </label>
+                        <div className="px-4 py-3 rounded-neu bg-neu-light-bg dark:bg-neu-dark-bg text-neu-light-text dark:text-neu-dark-text">
                             {user?.is_admin ? t('profile.admin') : t('profile.user')}
-                        </span>
+                        </div>
                     </div>
 
-                    <div className="form-actions">
-                        {isEditing ? (
-                            <>
-                                <button
-                                    type="button"
-                                    className="btn-cancel"
-                                    onClick={handleCancel}
-                                    disabled={loading}
-                                >
-                                    {t('common.cancel')}
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="btn-save"
-                                    disabled={loading}
-                                >
-                                    {loading ? t('common.loading') : t('common.save')}
-                                </button>
-                            </>
-                        ) : (
+                    {/* action buttons */}
+                    {isEditing && (
+                        <div className="flex gap-3 pt-4">
                             <button
                                 type="button"
-                                className="btn-edit"
-                                onClick={() => setIsEditing(true)}
+                                onClick={handleCancel}
+                                disabled={loading}
+                                className="neu-button flex-1 flex items-center justify-center gap-2"
                             >
-                                {t('common.edit')}
+                                <X className="w-5 h-5" />
+                                {t('common.cancel')}
                             </button>
-                        )}
-                    </div>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="neu-button flex-1 flex items-center justify-center gap-2
+                         bg-gradient-to-r from-primary-500 to-primary-600 text-white
+                         hover:from-primary-600 hover:to-primary-700
+                         disabled:opacity-50"
+                            >
+                                {loading ? (
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                    <>
+                                        <Save className="w-5 h-5" />
+                                        {t('common.save')}
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </form>
             </div>
         </div>
