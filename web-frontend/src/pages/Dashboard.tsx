@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/dashboard/Header';
 import GeneralTab from '../components/dashboard/GeneralTab';
 import ProfileTab from '../components/dashboard/ProfileTab';
 import ManagerTab from '../components/dashboard/ManagerTab';
-import './Dashboard.css';
 
-const Dashboard: React.FC = () => {
+const Dashboard = () => {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('general');
 
@@ -24,9 +23,9 @@ const Dashboard: React.FC = () => {
     };
 
     return (
-        <div className="dashboard">
+        <div className="neu-container">
             <Header activeTab={activeTab} onTabChange={setActiveTab} />
-            <main className="dashboard-content">
+            <main className="max-w-7xl mx-auto px-6 py-8">
                 {renderTabContent()}
             </main>
         </div>

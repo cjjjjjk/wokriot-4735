@@ -13,6 +13,5 @@ for files under /server/ and /web-frontend/ only:
 for coding style under /web-frontend/ only
 - all comment use Vietnamese
 
-for UI/UX under /web-frontend/ only:
-- primary UI style must follow Glassmorphism and Minimalism.
-- primary color scheme must use classic orange and warm white tones, avoiding neon or overly saturated colors.
+for UI/UX under /web-frontend/ and /mobile/ only:
+- primary UI style must follow Neumorphism.
