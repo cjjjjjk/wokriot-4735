@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Để xóa cache khi logout
+import 'dart:convert'; // <--- 1. Thêm thư viện này để tạo chuỗi JSON
+
 import '../screens/login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
-  // 1. Khai báo biến để nhận dữ liệu từ HomeScreen gửi sang
+  // Khai báo biến để nhận dữ liệu từ HomeScreen gửi sang
   final String fullName;
   final String userId;
 
@@ -32,6 +34,19 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // --- 2. TẠO DỮ LIỆU JSON CHO QR ---
+    // Đóng gói thông tin thành chuỗi JSON để QR chứa nhiều dữ liệu hơn
+    String qrData = jsonEncode({
+      "uid": userId,
+      "name": fullName,
+      "type": "staff_access", // Đánh dấu đây là mã nhân viên
+      "app": "wokriot",
+      "timestamp": DateTime.now()
+          .millisecondsSinceEpoch
+          .toString() // Thêm thời gian (tùy chọn) để tăng tính bảo mật
+    });
+    // ----------------------------------
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Hồ sơ cá nhân"),
@@ -50,7 +65,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 15),
 
-            // Tên nhân viên (Lấy từ biến truyền vào)
+            // Tên nhân viên
             Text(
               fullName,
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -83,8 +98,7 @@ class ProfileScreen extends StatelessWidget {
 
                   // Widget tạo mã QR
                   QrImageView(
-                    data:
-                        userId, // <--- SỬA QUAN TRỌNG: Dùng ID để tạo QR, không dùng Tên
+                    data: qrData, // <--- SỬA QUAN TRỌNG: Dùng chuỗi JSON
                     version: QrVersions.auto,
                     size: 200.0,
                     gapless: false,
@@ -92,8 +106,9 @@ class ProfileScreen extends StatelessWidget {
                   ),
 
                   const SizedBox(height: 15),
+                  // Vẫn hiển thị ID dạng chữ cho dễ đọc (dù QR chứa cả JSON)
                   Text(
-                    userId,
+                    "ID: $userId",
                     style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.5,
