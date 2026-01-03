@@ -42,6 +42,7 @@ export default {
                 'neu-lg': '5px 5px 10px #b8c6db, -5px -5px 10px #ffffff',
                 'neu-xl': '8px 8px 16px #b8c6db, -8px -8px 16px #ffffff',
                 'neu-inset': 'inset 1px 1px 2px #b8c6db, inset -1px -1px 2px #ffffff',
+                'neu-inset-lg': 'inset 2px 2px 4px #b8c6db, inset -2px -2px 4px #ffffff',
                 'neu-dark-sm': '1px 1px 2px rgba(0,0,0,0.6), -1px -1px 2px rgba(255,255,255,0.03)',
                 'neu-dark-md': '3px 3px 6px rgba(0,0,0,0.6), -3px -3px 6px rgba(255,255,255,0.03)',
                 'neu-dark-lg': '5px 5px 10px rgba(0,0,0,0.6), -5px -5px 10px rgba(255,255,255,0.03)',

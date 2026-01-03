@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart'; // Đảm bảo đã import đúng file HomeScreen
+import '../config/app_config.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,10 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
 
   // --- CẤU HÌNH SERVER ---
-  // Bạn kiểm tra lại IP nếu cần thiết
-  static const String serverIp = '172.23.143.174';
-  static const String serverPort = '5000';
-  static const String baseUrl = 'http://$serverIp:$serverPort';
+  String get baseUrl => AppConfig.baseUrl;
 
   Future<void> _handleLogin() async {
     final email = _usernameController.text.trim();
@@ -106,7 +104,8 @@ class _LoginScreenState extends State<LoginScreen> {
         _showSnackBar(message, isError: true);
       }
     } on SocketException {
-      _showSnackBar("Lỗi kết nối mạng. Kiểm tra IP $serverIp", isError: true);
+      _showSnackBar("Lỗi kết nối mạng. Kiểm tra IP ${AppConfig.serverIp}",
+          isError: true);
     } on TimeoutException {
       _showSnackBar("Kết nối quá lâu. Server có đang bật không?",
           isError: true);
