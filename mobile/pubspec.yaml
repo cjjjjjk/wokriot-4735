@@ -20,7 +20,7 @@ dependencies:
   http: ^1.2.0
   
   # 2. Để lưu Token đăng nhập, thông tin user cục bộ
-  shared_preferences: ^2.2.0
+  shared_preferences: ^2.2.2
   
   # 3. Format ngày giờ (Ví dụ: 24/12/2025)
   intl: ^0.19.0
