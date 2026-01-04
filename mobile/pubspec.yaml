@@ -41,6 +41,12 @@ dependencies:
   # Giúp App lắng nghe tín hiệu "bíp" từ ESP32/Server gửi về
   mqtt_client: ^10.0.1
 
+  # 9. 
+  flutter_dotenv: ^6.0.0
+
+  # 10. Biểu đồ
+  fl_chart: ^0.68.0
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -49,5 +55,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   
-  # assets:
-  #   - assets/images/
+  assets:
+    - .env
+    # - assets/images/

@@ -24,8 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final AttendanceMQTTService _mqttService = AttendanceMQTTService();
 
   // --- CẤU HÌNH SERVER ---
-  static const String serverIp = '172.23.143.174';
-  static const String baseUrl = 'http://$serverIp:5000';
+  String get baseUrl => AppConfig.baseUrl;
 
   // Biến hiển thị User
   String _fullName = "Đang tải...";
@@ -38,6 +37,10 @@ class _HomeScreenState extends State<HomeScreen> {
   // --- ĐÃ SỬA: THÊM BIẾN BỊ THIẾU ---
   bool _isLoading = true;
 
+  // Biến cho Biểu đồ
+  List<double> _weeklyData = [0, 0, 0, 0, 0, 0, 0]; // Mặc định 7 ngày = 0
+  DateTime _startOfWeek = DateTime.now(); // Ngày bắt đầu tuần
+
   final List<AttendanceHistory> _history = [];
 
   @override
@@ -46,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUserInfo();
     _loadHistory();
     _fetchTodayData();
+    _fetchWeeklyData();
     _setupMqtt();
   }
 
@@ -72,10 +76,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _fullName = prefs.getString('FULL_NAME') ?? "Nhân viên";
-      _userId = prefs.getString('USER_ID') ?? "---";
-    });
+    if (mounted) {
+      setState(() {
+        _fullName = prefs.getString('FULL_NAME') ?? "Nhân viên";
+        _userId = prefs.getString('USER_ID') ?? "---";
+      });
+    }
   }
 
   // --- 3. LẤY TRẠNG THÁI TỪ SERVER (ĐÃ SỬA LOGIC PARSE JSON) ---
@@ -326,14 +332,33 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Row(
           children: [
-            Text("Xin chào, $_fullName", style: const TextStyle(fontSize: 14)),
-            const Text("WOKRIOT-SYSTEM",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            CircleAvatar(
+              backgroundColor: Colors.blue.shade100,
+              child: Text(
+                _fullName.isNotEmpty ? _fullName[0].toUpperCase() : "U",
+                style: const TextStyle(
+                    color: Colors.blue, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Xin chào, $_fullName",
+                    style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                const Text("WOKRIOT APP",
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87)),
+              ],
+            ),
           ],
         ),
         actions: [
@@ -350,7 +375,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _fetchTodayData,
+        onRefresh: () async {
+          await _fetchTodayData();
+          await _fetchWeeklyData();
+        },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Padding(
@@ -370,13 +398,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ? const Center(child: CircularProgressIndicator())
                     : _buildStatusCard(),
 
-                const SizedBox(height: 30),
-                const Text("Tiện ích",
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey)),
-                const SizedBox(height: 10),
+              const SizedBox(height: 30),
 
                 GridView.count(
                   shrinkWrap: true,
@@ -406,17 +428,35 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => ProfileScreen(
-                            fullName: _fullName,
-                            userId: _userId,
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ],
-            ),
+                            builder: (_) =>
+                                HistoryScreen(historyData: _history)));
+                  }),
+                  _buildMenuCard(
+                      Icons.send_rounded, "Gửi đơn\nTừ xa", Colors.orangeAccent,
+                      () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const RequestScreen()));
+                  }),
+                  _buildMenuCard(Icons.person_outline, "Hồ sơ\nCá nhân",
+                      Colors.purpleAccent, () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => ProfileScreen(
+                                fullName: _fullName, userId: _userId)));
+                  }),
+                  _buildMenuCard(
+                      Icons.settings_outlined, "Cài đặt\nChung", Colors.grey,
+                      () {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text("Tính năng đang phát triển")));
+                  }),
+                ],
+              ),
+              const SizedBox(height: 40),
+            ],
           ),
         ),
       ),
@@ -427,21 +467,34 @@ class _HomeScreenState extends State<HomeScreen> {
       IconData icon, String title, Color color, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.grey.withOpacity(0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 4))
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 35, color: color),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: color.withOpacity(0.1), shape: BoxShape.circle),
+              child: Icon(icon, size: 28, color: color),
+            ),
             const SizedBox(height: 10),
             Text(title,
                 textAlign: TextAlign.center,
-                style:
-                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87)),
           ],
         ),
       ),
