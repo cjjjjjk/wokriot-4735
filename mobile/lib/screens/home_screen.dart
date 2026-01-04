@@ -45,8 +45,29 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserInfo();
+    _loadHistory();
     _fetchTodayData();
     _setupMqtt();
+  }
+
+  Future<void> _loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? historyString = prefs.getString('ATTENDANCE_HISTORY');
+
+    if (historyString != null) {
+      setState(() {
+        // Dùng hàm decode mình vừa viết ở Bước 1
+        _history.clear();
+        _history.addAll(AttendanceHistory.decode(historyString));
+      });
+    }
+  }
+
+  Future<void> _saveHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Dùng hàm encode mình vừa viết ở Bước 1
+    final String encodedData = AttendanceHistory.encode(_history);
+    await prefs.setString('ATTENDANCE_HISTORY', encodedData);
   }
 
   Future<void> _loadUserInfo() async {
@@ -147,6 +168,8 @@ class _HomeScreenState extends State<HomeScreen> {
               status: status == "CHECK_IN" ? "Vào làm" : "Ra về",
             ));
       });
+
+      _saveHistory();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: _statusColor),
