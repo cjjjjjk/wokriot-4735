@@ -6,13 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 // --- IMPORT CÁC FILE CẦN THIẾT ---
 import '../services/mqtt_service.dart';
 import '../models/attendance_model.dart';
-import '../utils/notification_helper.dart'; // <--- 1. Import Helper để lưu thông báo
+import '../utils/notification_helper.dart';
 
 import 'history_screen.dart';
 import 'request_screen.dart';
-import 'login_screen.dart';
 import 'profile_screen.dart';
-import 'notification_screen.dart'; // <--- 2. Import màn hình Thông báo
+import 'notification_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,11 +31,11 @@ class _HomeScreenState extends State<HomeScreen> {
   String _fullName = "Đang tải...";
   String _userId = "---";
 
-  // Biến trạng thái giao diện
-  String _todayStatus = "Chưa Check-in";
-  String _lastCheckTime = "--:--";
-  Color _statusColor = Colors.grey;
-  IconData _statusIcon = Icons.fingerprint;
+  // --- QUẢN LÝ TRẠNG THÁI ---
+  String _currentStatus = "NONE";
+  String _displayTime = "--:--";
+
+  // --- ĐÃ SỬA: THÊM BIẾN BỊ THIẾU ---
   bool _isLoading = true;
 
   final List<AttendanceHistory> _history = [];
@@ -50,22 +49,23 @@ class _HomeScreenState extends State<HomeScreen> {
     _setupMqtt();
   }
 
+  // --- 1. TẢI LỊCH SỬ TỪ MÁY ---
   Future<void> _loadHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final String? historyString = prefs.getString('ATTENDANCE_HISTORY');
-
     if (historyString != null) {
-      setState(() {
-        // Dùng hàm decode mình vừa viết ở Bước 1
-        _history.clear();
-        _history.addAll(AttendanceHistory.decode(historyString));
-      });
+      if (mounted) {
+        setState(() {
+          _history.clear();
+          _history.addAll(AttendanceHistory.decode(historyString));
+        });
+      }
     }
   }
 
+  // --- 2. LƯU LỊCH SỬ VÀO MÁY ---
   Future<void> _saveHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    // Dùng hàm encode mình vừa viết ở Bước 1
     final String encodedData = AttendanceHistory.encode(_history);
     await prefs.setString('ATTENDANCE_HISTORY', encodedData);
   }
@@ -78,8 +78,9 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // --- LOGIC GỌI API ĐỂ LẤY TRẠNG THÁI BAN ĐẦU ---
+  // --- 3. LẤY TRẠNG THÁI TỪ SERVER (ĐÃ SỬA LOGIC PARSE JSON) ---
   Future<void> _fetchTodayData() async {
+    print("------- BẮT ĐẦU GỌI API -------");
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('ACCESS_TOKEN');
 
@@ -90,8 +91,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final url = Uri.parse('$baseUrl/api/worked-day/day');
-      // print("LOG: Đang lấy dữ liệu hôm nay: $url");
-
       final response = await http.get(
         url,
         headers: {
@@ -100,71 +99,156 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ).timeout(const Duration(seconds: 5));
 
+      print("Response Body: ${response.body}"); // Xem log ở đây
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final body = jsonDecode(response.body);
 
-        String status = "NONE";
-        String time = "--:--";
+        // --- LOGIC MỚI DỰA TRÊN HÌNH 5 ---
+        // Cấu trúc JSON: { "data": { "times": ["08:00", "17:00"], ... }, ... }
+        if (body['is_success'] == true && body['data'] != null) {
+          final data = body['data'];
+          List<dynamic> times =
+              data['times'] ?? []; // Lấy danh sách giờ chấm công
 
-        if (data['check_in'] != null) {
-          status = "CHECK_IN";
-          time = data['check_in'];
+          String serverCheckIn = "";
+          String serverCheckOut = "";
+
+          if (times.isNotEmpty) {
+            // Phần tử đầu tiên là Check-in
+            serverCheckIn = times[0].toString();
+
+            // Nếu có nhiều hơn 1 phần tử, phần tử cuối cùng là Check-out
+            if (times.length >= 2) {
+              serverCheckOut = times.last.toString();
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              // Khôi phục trạng thái
+              if (serverCheckOut.isNotEmpty) {
+                _currentStatus = "CHECK_OUT";
+                _displayTime = serverCheckOut;
+              } else if (serverCheckIn.isNotEmpty) {
+                _currentStatus = "CHECK_IN";
+                _displayTime = serverCheckIn;
+              } else {
+                _currentStatus = "NONE";
+                _displayTime = "--:--";
+              }
+
+              // Tự động thêm vào lịch sử
+              if (_currentStatus != "NONE") {
+                final String todayDate =
+                    DateTime.now().toString().split(' ')[0];
+                bool hasTodayHistory =
+                    _history.any((item) => item.date == todayDate);
+
+                if (!hasTodayHistory) {
+                  _history.insert(
+                      0,
+                      AttendanceHistory(
+                        date: todayDate,
+                        checkIn:
+                            serverCheckIn.isNotEmpty ? serverCheckIn : "--:--",
+                        checkOut: serverCheckOut.isNotEmpty
+                            ? serverCheckOut
+                            : "--:--",
+                        status:
+                            _currentStatus == "CHECK_IN" ? "Vào làm" : "Ra về",
+                      ));
+                  _saveHistory();
+                }
+              }
+            });
+          }
         }
-        if (data['check_out'] != null) {
-          status = "CHECK_OUT";
-          time = data['check_out'];
-        }
-
-        _updateUI(status, time);
       }
     } catch (e) {
-      print("LOG: Lỗi kết nối API: $e");
+      print("LỖI KẾT NỐI API: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // --- LOGIC MQTT (ĐÃ CẬP NHẬT GHI THÔNG BÁO) ---
+  // --- 4. LOGIC MQTT ---
   void _setupMqtt() async {
     await _mqttService.initialize();
 
-    // Thêm async vào đây để dùng await lưu thông báo
-    _mqttService.onDataReceived = (status, msg, time) async {
+    _mqttService.onDataReceived = (status, msg, serverTime) async {
       if (!mounted) return;
+
+      final now = DateTime.now();
+      final String realTime =
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+      // --- CHẶN LẶP LẠI ---
+      if (status == "CHECK_IN") {
+        if (_currentStatus == "CHECK_IN") {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Bạn đã Check-in rồi!"),
+            backgroundColor: Colors.redAccent,
+          ));
+          return;
+        }
+        if (_currentStatus == "CHECK_OUT") {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Bạn đã hoàn thành ca làm việc rồi!"),
+            backgroundColor: Colors.redAccent,
+          ));
+          return;
+        }
+      }
+
+      if (status == "CHECK_OUT") {
+        if (_currentStatus == "CHECK_OUT") {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Bạn đã Check-out rồi!"),
+            backgroundColor: Colors.redAccent,
+          ));
+          return;
+        }
+        if (_currentStatus == "NONE") {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Bạn chưa Check-in thì không thể Check-out!"),
+            backgroundColor: Colors.redAccent,
+          ));
+          return;
+        }
+      }
+
+      // --- XỬ LÝ THÀNH CÔNG ---
+      String successMessage = "";
+      if (status == "CHECK_IN") {
+        successMessage = "Bạn đã Check-in thành công!";
+      } else {
+        successMessage = "Bạn đã Check-out thành công!";
+      }
 
       setState(() {
         _isLoading = false;
+        if (status == "CHECK_IN") {
+          _currentStatus = "CHECK_IN";
+          _displayTime = realTime;
+        } else if (status == "CHECK_OUT") {
+          _currentStatus = "CHECK_OUT";
+          _displayTime = realTime;
+        }
       });
 
-      _updateUI(status, time);
-
-      // --- 3. TỰ ĐỘNG LƯU THÔNG BÁO KHI CÓ SỰ KIỆN MQTT ---
-      String notifType = "info";
-      String notifTitle = "Thông báo";
-
-      if (status == "CHECK_IN") {
-        notifTitle = "Check-in Thành công";
-        notifType = "checkin";
-      } else if (status == "CHECK_OUT") {
-        notifTitle = "Check-out Thành công";
-        notifType = "checkout";
-      }
-
-      // Gọi Helper để lưu vào bộ nhớ máy
       await NotificationHelper.addNotification(
-          notifTitle,
-          "Ghi nhận lúc $time. $msg", // Nội dung
-          notifType);
-      // -----------------------------------------------------
+          successMessage,
+          "Ghi nhận lúc $realTime.",
+          status == "CHECK_IN" ? "checkin" : "checkout");
 
-      // Thêm vào lịch sử hiển thị ngay trên màn hình Home
       setState(() {
         _history.insert(
             0,
             AttendanceHistory(
               date: DateTime.now().toString().split(' ')[0],
-              checkIn: status == "CHECK_IN" ? time : "--:--",
-              checkOut: status == "CHECK_OUT" ? time : "--:--",
+              checkIn: status == "CHECK_IN" ? realTime : "--:--",
+              checkOut: status == "CHECK_OUT" ? realTime : "--:--",
               status: status == "CHECK_IN" ? "Vào làm" : "Ra về",
             ));
       });
@@ -172,29 +256,71 @@ class _HomeScreenState extends State<HomeScreen> {
       _saveHistory();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: _statusColor),
+        SnackBar(
+            content: Text("$successMessage (Lúc $realTime)"),
+            backgroundColor: Colors.blueAccent),
       );
     };
   }
 
-  void _updateUI(String status, String time) {
-    if (!mounted) return;
-    setState(() {
-      _lastCheckTime = time;
-      if (status == "CHECK_IN") {
-        _todayStatus = "Đã vào (Check-in)";
-        _statusColor = Colors.green;
-        _statusIcon = Icons.login;
-      } else if (status == "CHECK_OUT") {
-        _todayStatus = "Đã về (Check-out)";
-        _statusColor = Colors.orange;
-        _statusIcon = Icons.logout;
-      } else {
-        _todayStatus = "Chưa Check-in";
-        _statusColor = Colors.grey;
-        _statusIcon = Icons.fingerprint;
-      }
-    });
+  // --- 5. WIDGET TRẠNG THÁI (ĐÃ SỬA LỖI Colors -> Icons) ---
+  Widget _buildStatusCard() {
+    Color cardColor;
+    String statusTitle;
+    String statusDesc;
+    IconData statusIcon; // Đổi type thành IconData
+
+    switch (_currentStatus) {
+      case "CHECK_IN":
+        cardColor = Colors.orange.shade700;
+        statusTitle = "ĐANG LÀM VIỆC";
+        statusDesc = "Đã vào lúc $_displayTime.\nĐừng quên Check-out khi về!";
+        statusIcon = Icons.timer; // ĐÃ SỬA: Dùng Icons thay vì Colors
+        break;
+      case "CHECK_OUT":
+        cardColor = Colors.green.shade700;
+        statusTitle = "ĐÃ HOÀN THÀNH";
+        statusDesc = "Đã về lúc $_displayTime.\nHẹn gặp lại bạn vào ngày mai!";
+        statusIcon = Icons.check_circle_outline; // ĐÃ SỬA
+        break;
+      default: // NONE
+        cardColor = Colors.blue.shade700;
+        statusTitle = "SẴN SÀNG";
+        statusDesc = "Vui lòng quét mã để Check-in\nbắt đầu ca làm việc.";
+        statusIcon = Icons.login; // ĐÃ SỬA
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+              color: cardColor.withOpacity(0.4),
+              blurRadius: 10,
+              offset: const Offset(0, 5))
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(statusIcon, size: 45, color: Colors.white),
+          const SizedBox(height: 10),
+          Text(
+            statusTitle,
+            style: const TextStyle(
+                fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            statusDesc,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, color: Colors.white70),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -211,7 +337,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
-          // --- 4. NÚT CHUÔNG MỞ MÀN HÌNH THÔNG BÁO ---
           IconButton(
             icon: const Icon(Icons.notifications_none),
             onPressed: () {
@@ -233,62 +358,17 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Hôm nay",
+                const Text("Trạng thái hôm nay",
                     style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Colors.grey)),
                 const SizedBox(height: 10),
 
-                // Card Trạng thái
+                // Đã có biến _isLoading, không còn lỗi nữa
                 _isLoading
-                    ? const Center(
-                        child: Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: CircularProgressIndicator(),
-                      ))
-                    : Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: const [
-                            BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 10,
-                                offset: Offset(0, 5))
-                          ],
-                          border: Border(
-                              left: BorderSide(color: _statusColor, width: 5)),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                  color: _statusColor.withOpacity(0.1),
-                                  shape: BoxShape.circle),
-                              child: Icon(_statusIcon,
-                                  color: _statusColor, size: 30),
-                            ),
-                            const SizedBox(width: 15),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(_todayStatus,
-                                    style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: _statusColor)),
-                                const SizedBox(height: 5),
-                                Text("Thời gian: $_lastCheckTime",
-                                    style: const TextStyle(
-                                        fontSize: 14, color: Colors.grey)),
-                              ],
-                            )
-                          ],
-                        ),
-                      ),
+                    ? const Center(child: CircularProgressIndicator())
+                    : _buildStatusCard(),
 
                 const SizedBox(height: 30),
                 const Text("Tiện ích",
@@ -321,7 +401,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           MaterialPageRoute(
                               builder: (context) => const RequestScreen()));
                     }),
-                    // --- NÚT HỒ SƠ CÁ NHÂN ---
                     _buildMenuCard(
                         Icons.person, "Hồ sơ\ncá nhân", Colors.purple, () {
                       Navigator.push(
