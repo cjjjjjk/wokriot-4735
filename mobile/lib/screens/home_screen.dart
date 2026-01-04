@@ -24,7 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final AttendanceMQTTService _mqttService = AttendanceMQTTService();
 
   // --- CẤU HÌNH SERVER ---
-  String get baseUrl => AppConfig.baseUrl;
+  static const String serverIp = '172.23.143.174';
+  static const String baseUrl = 'http://$serverIp:5000';
 
   // Biến hiển thị User
   String _fullName = "Đang tải...";
@@ -34,12 +35,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _currentStatus = "NONE";
   String _displayTime = "--:--";
 
-  // --- ĐÃ SỬA: THÊM BIẾN BỊ THIẾU ---
+  // --- ĐÃ SỬA LỖI 2: THÊM BIẾN BỊ THIẾU ---
   bool _isLoading = true;
-
-  // Biến cho Biểu đồ
-  List<double> _weeklyData = [0, 0, 0, 0, 0, 0, 0]; // Mặc định 7 ngày = 0
-  DateTime _startOfWeek = DateTime.now(); // Ngày bắt đầu tuần
 
   final List<AttendanceHistory> _history = [];
 
@@ -49,7 +46,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUserInfo();
     _loadHistory();
     _fetchTodayData();
-    _fetchWeeklyData();
     _setupMqtt();
   }
 
@@ -76,15 +72,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _fullName = prefs.getString('FULL_NAME') ?? "Nhân viên";
-        _userId = prefs.getString('USER_ID') ?? "---";
-      });
-    }
+    setState(() {
+      _fullName = prefs.getString('FULL_NAME') ?? "Nhân viên";
+      _userId = prefs.getString('USER_ID') ?? "---";
+    });
   }
 
-  // --- 3. LẤY TRẠNG THÁI TỪ SERVER (ĐÃ SỬA LOGIC PARSE JSON) ---
+  // --- 3. LẤY TRẠNG THÁI TỪ SERVER (ĐÃ SỬA LOGIC THEO HÌNH 4) ---
   Future<void> _fetchTodayData() async {
     print("------- BẮT ĐẦU GỌI API -------");
     final prefs = await SharedPreferences.getInstance();
@@ -105,17 +99,16 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ).timeout(const Duration(seconds: 5));
 
-      print("Response Body: ${response.body}"); // Xem log ở đây
+      print("Response Body: ${response.body}"); // Xem log
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
 
-        // --- LOGIC MỚI DỰA TRÊN HÌNH 5 ---
-        // Cấu trúc JSON: { "data": { "times": ["08:00", "17:00"], ... }, ... }
+        // --- LOGIC MỚI: Đọc dữ liệu từ mảng 'times' ---
         if (body['is_success'] == true && body['data'] != null) {
           final data = body['data'];
-          List<dynamic> times =
-              data['times'] ?? []; // Lấy danh sách giờ chấm công
+          // Lấy danh sách giờ chấm công (Hình 4 cho thấy nó tên là 'times')
+          List<dynamic> times = data['times'] ?? [];
 
           String serverCheckIn = "";
           String serverCheckOut = "";
@@ -124,7 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // Phần tử đầu tiên là Check-in
             serverCheckIn = times[0].toString();
 
-            // Nếu có nhiều hơn 1 phần tử, phần tử cuối cùng là Check-out
+            // Nếu có nhiều hơn 1 phần tử (tức là đã về), lấy cái cuối làm Check-out
             if (times.length >= 2) {
               serverCheckOut = times.last.toString();
             }
@@ -269,7 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
     };
   }
 
-  // --- 5. WIDGET TRẠNG THÁI (ĐÃ SỬA LỖI Colors -> Icons) ---
+  // --- 5. WIDGET TRẠNG THÁI (ĐÃ SỬA LỖI 1: Colors -> Icons) ---
   Widget _buildStatusCard() {
     Color cardColor;
     String statusTitle;
@@ -281,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
         cardColor = Colors.orange.shade700;
         statusTitle = "ĐANG LÀM VIỆC";
         statusDesc = "Đã vào lúc $_displayTime.\nĐừng quên Check-out khi về!";
-        statusIcon = Icons.timer; // ĐÃ SỬA: Dùng Icons thay vì Colors
+        statusIcon = Icons.timer; // ĐÃ SỬA: Dùng Icons
         break;
       case "CHECK_OUT":
         cardColor = Colors.green.shade700;
@@ -332,33 +325,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Row(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              backgroundColor: Colors.blue.shade100,
-              child: Text(
-                _fullName.isNotEmpty ? _fullName[0].toUpperCase() : "U",
-                style: const TextStyle(
-                    color: Colors.blue, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Xin chào, $_fullName",
-                    style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                const Text("WOKRIOT APP",
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87)),
-              ],
-            ),
+            Text("Xin chào, $_fullName", style: const TextStyle(fontSize: 14)),
+            const Text("WOKRIOT-SYSTEM",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
@@ -375,10 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async {
-          await _fetchTodayData();
-          await _fetchWeeklyData();
-        },
+        onRefresh: _fetchTodayData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Padding(
@@ -392,14 +363,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontWeight: FontWeight.bold,
                         color: Colors.grey)),
                 const SizedBox(height: 10),
-
-                // Đã có biến _isLoading, không còn lỗi nữa
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _buildStatusCard(),
-
-              const SizedBox(height: 30),
-
+                const SizedBox(height: 30),
+                const Text("Tiện ích",
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey)),
+                const SizedBox(height: 10),
                 GridView.count(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -428,35 +401,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) =>
-                                HistoryScreen(historyData: _history)));
-                  }),
-                  _buildMenuCard(
-                      Icons.send_rounded, "Gửi đơn\nTừ xa", Colors.orangeAccent,
-                      () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const RequestScreen()));
-                  }),
-                  _buildMenuCard(Icons.person_outline, "Hồ sơ\nCá nhân",
-                      Colors.purpleAccent, () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => ProfileScreen(
-                                fullName: _fullName, userId: _userId)));
-                  }),
-                  _buildMenuCard(
-                      Icons.settings_outlined, "Cài đặt\nChung", Colors.grey,
-                      () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text("Tính năng đang phát triển")));
-                  }),
-                ],
-              ),
-              const SizedBox(height: 40),
-            ],
+                          builder: (context) => ProfileScreen(
+                            fullName: _fullName,
+                            userId: _userId,
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -467,34 +422,21 @@ class _HomeScreenState extends State<HomeScreen> {
       IconData icon, String title, Color color, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.grey.withOpacity(0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 4))
-          ],
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                  color: color.withOpacity(0.1), shape: BoxShape.circle),
-              child: Icon(icon, size: 28, color: color),
-            ),
+            Icon(icon, size: 35, color: color),
             const SizedBox(height: 10),
             Text(title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87)),
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
           ],
         ),
       ),
