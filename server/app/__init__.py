@@ -62,7 +62,7 @@ def create_app():
     # khởi tạo CORS - cho phép frontend truy cập API
     cors.init_app(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:5173", "http://localhost:3000"],
+            "origins": "*", # all sources
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "supports_credentials": True
