@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert'; // Thư viện để mã hóa JSON
-
-import '../screens/login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final String fullName;
@@ -15,53 +12,9 @@ class ProfileScreen extends StatelessWidget {
     required this.userId,
   });
 
-  // --- HÀM ĐĂNG XUẤT (ĐÃ SỬA) ---
-  Future<void> _handleLogout(BuildContext context) async {
-    // 1. Hiện hộp thoại hỏi cho chắc chắn
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Đăng xuất"),
-        content: const Text("Bạn có chắc chắn muốn đăng xuất không?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("Không", style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("Có, Đăng xuất",
-                style:
-                    TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-
-    // Nếu người dùng chọn "Không" hoặc bấm ra ngoài thì dừng lại
-    if (confirm != true) return;
-
-    // 2. Thực hiện xóa dữ liệu AN TOÀN
-    final prefs = await SharedPreferences.getInstance();
-
-    // ⚠️ CHỈ XÓA Token và Info, KHÔNG dùng prefs.clear() để bảo vệ lịch sử
-    await prefs.remove('ACCESS_TOKEN');
-    await prefs.remove('USER_ID');
-    await prefs.remove('FULL_NAME');
-
-    // 3. Chuyển về màn hình đăng nhập
-    if (context.mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false, // Xóa hết stack trang cũ
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // --- TẠO DỮ LIỆU JSON CHO QR ---
+    // --- TẠO DỮ LIỆU JSON CHO QR (GIỮ NGUYÊN) ---
     // Tạo một object map chứa thông tin
     Map<String, dynamic> qrDataMap = {
       "uid": userId,
@@ -129,7 +82,7 @@ class ProfileScreen extends StatelessWidget {
 
             const SizedBox(height: 40),
 
-            // 👇👇 KHU VỰC HIỂN THỊ MÃ QR
+            // 👇👇 KHU VỰC HIỂN THỊ MÃ QR (GIỮ NGUYÊN)
             Container(
               padding: const EdgeInsets.all(25),
               decoration: BoxDecoration(
@@ -162,9 +115,6 @@ class ProfileScreen extends StatelessWidget {
                     version: QrVersions.auto,
                     size: 220.0,
                     gapless: false,
-                    // Có thể thêm logo vào giữa QR nếu muốn
-                    // embeddedImage: const AssetImage('assets/images/logo.png'),
-                    // embeddedImageStyle: const QrEmbeddedImageStyle(size: Size(40, 40)),
                   ),
 
                   const SizedBox(height: 15),
@@ -177,26 +127,8 @@ class ProfileScreen extends StatelessWidget {
             ),
             // 👆👆 HẾT PHẦN QR
 
+            // ĐÃ XÓA NÚT ĐĂNG XUẤT Ở ĐÂY
             const SizedBox(height: 50),
-
-            // Nút đăng xuất
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.logout_rounded, color: Colors.white),
-                label: const Text("Đăng xuất khỏi thiết bị",
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent.shade200,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15))),
-                onPressed: () => _handleLogout(context),
-              ),
-            ),
           ],
         ),
       ),
