@@ -42,14 +42,7 @@ services:
       - .:/app
     networks:
       - iot-network
-  mosquitto:
-    image: eclipse-mosquitto:1.6
-    container_name: mosquitto_container
-    ports:
-      - "1883:1883"
-      - "9001:9001"
-    restart: always
-    
+
 volumes:
   mysql_data:
 

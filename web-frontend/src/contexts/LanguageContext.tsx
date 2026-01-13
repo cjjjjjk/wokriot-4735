@@ -31,6 +31,7 @@ const translations: Record<Language, Record<string, string>> = {
         'tabs.general': 'General',
         'tabs.profile': 'Profile',
         'tabs.manager': 'Manager',
+        'tabs.devices': 'Devices',
 
         // general tab
         'general.todayLog': 'Today\'s Attendance',
@@ -84,6 +85,40 @@ const translations: Record<Language, Record<string, string>> = {
         'manager.deleteError': 'Failed to delete user',
         'manager.confirmDelete': 'Are you sure you want to delete {name}?',
         'manager.fetchError': 'Failed to fetch users',
+        'manager.copyRfid': 'Copy RFID',
+        'manager.userLogs': 'Attendance Logs',
+        'manager.records': 'records',
+
+        // devices
+        'devices.title': 'Device Management',
+        'devices.deviceId': 'Device ID',
+        'devices.name': 'Name',
+        'devices.lastSeen': 'Last Seen',
+        'devices.door': 'Door',
+        'devices.rfid': 'RFID',
+        'devices.active': 'Active',
+        'devices.noDevices': 'No devices found',
+        'devices.never': 'Never',
+        'devices.doorOpen': 'Door is open',
+        'devices.doorClosed': 'Door is closed',
+        'devices.rfidOn': 'RFID scanning enabled',
+        'devices.rfidOff': 'RFID scanning disabled',
+        'devices.doorSuccess': 'Door control successful!',
+        'devices.doorError': 'Failed to control door',
+        'devices.rfidSuccess': 'RFID control successful!',
+        'devices.rfidError': 'Failed to control RFID',
+        'devices.activateSuccess': 'Device status updated!',
+        'devices.activateError': 'Failed to update device status',
+        'devices.deleteSuccess': 'Device deleted successfully!',
+        'devices.deleteError': 'Failed to delete device',
+        'devices.confirmDelete': 'Are you sure you want to delete {name}?',
+        'devices.fetchError': 'Failed to fetch devices',
+        'devices.logsTitle': 'Attendance Logs',
+        'devices.viewLogs': 'View logs for this device',
+        'devices.showAll': 'Show all logs',
+        'devices.totalLogs': 'Total logs',
+        'devices.noLogs': 'No logs found',
+        'devices.logsError': 'Failed to fetch logs',
 
         // common
         'common.loading': 'Loading...',
@@ -96,6 +131,7 @@ const translations: Record<Language, Record<string, string>> = {
         'common.edit': 'Edit',
         'common.search': 'Search',
         'common.perPage': 'Per page',
+        'common.refresh': 'Refresh',
     },
     vi: {
         // login page
@@ -116,6 +152,7 @@ const translations: Record<Language, Record<string, string>> = {
         'tabs.general': 'Chung',
         'tabs.profile': 'Hồ sơ',
         'tabs.manager': 'Quản lý',
+        'tabs.devices': 'Thiết bị',
 
         // general tab
         'general.todayLog': 'Chấm công hôm nay',
@@ -169,6 +206,40 @@ const translations: Record<Language, Record<string, string>> = {
         'manager.deleteError': 'Không thể xóa người dùng',
         'manager.confirmDelete': 'Bạn có chắc muốn xóa {name}?',
         'manager.fetchError': 'Không thể tải danh sách người dùng',
+        'manager.copyRfid': 'Sao chép RFID',
+        'manager.userLogs': 'Nhật ký chấm công',
+        'manager.records': 'bản ghi',
+
+        // devices
+        'devices.title': 'Quản lý thiết bị',
+        'devices.deviceId': 'Mã thiết bị',
+        'devices.name': 'Tên',
+        'devices.lastSeen': 'Lần cuối hoạt động',
+        'devices.door': 'Cửa',
+        'devices.rfid': 'RFID',
+        'devices.active': 'Hoạt động',
+        'devices.noDevices': 'Không có thiết bị nào',
+        'devices.never': 'Chưa bao giờ',
+        'devices.doorOpen': 'Cửa đang mở',
+        'devices.doorClosed': 'Cửa đang đóng',
+        'devices.rfidOn': 'Đang bật quẹt thẻ',
+        'devices.rfidOff': 'Đã tắt quẹt thẻ',
+        'devices.doorSuccess': 'Điều khiển cửa thành công!',
+        'devices.doorError': 'Điều khiển cửa thất bại',
+        'devices.rfidSuccess': 'Điều khiển RFID thành công!',
+        'devices.rfidError': 'Điều khiển RFID thất bại',
+        'devices.activateSuccess': 'Cập nhật trạng thái thiết bị thành công!',
+        'devices.activateError': 'Cập nhật trạng thái thiết bị thất bại',
+        'devices.deleteSuccess': 'Xoá thiết bị thành công!',
+        'devices.deleteError': 'Xoá thiết bị thất bại',
+        'devices.confirmDelete': 'Bạn có chắc muốn xoá {name}?',
+        'devices.fetchError': 'Không thể tải danh sách thiết bị',
+        'devices.logsTitle': 'Nhật ký quẹt thẻ',
+        'devices.viewLogs': 'Xem nhật ký thiết bị này',
+        'devices.showAll': 'Hiển thị tất cả',
+        'devices.totalLogs': 'Tổng số bản ghi',
+        'devices.noLogs': 'Không có nhật ký nào',
+        'devices.logsError': 'Không thể tải nhật ký',
 
         // common
         'common.loading': 'Đang tải...',
@@ -181,6 +252,7 @@ const translations: Record<Language, Record<string, string>> = {
         'common.edit': 'Sửa',
         'common.search': 'Tìm kiếm',
         'common.perPage': 'Mỗi trang',
+        'common.refresh': 'Làm mới',
     }
 };
 
