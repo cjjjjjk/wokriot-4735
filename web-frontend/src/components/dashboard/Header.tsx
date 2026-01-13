@@ -36,7 +36,7 @@ const Header = ({ activeTab, onTabChange }: HeaderProps) => {
 
     // tabs dựa trên role
     const tabs = user?.is_admin
-        ? ['general', 'profile', 'manager']
+        ? ['general', 'profile', 'manager', 'devices']
         : ['general', 'profile'];
 
     return (

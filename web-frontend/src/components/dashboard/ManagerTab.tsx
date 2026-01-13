@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { UserPlus, Edit2, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { UserPlus, Edit2, Trash2, ChevronLeft, ChevronRight, X, Copy, Check } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getUsers, createUser, updateUser, deleteUser } from '../../services/api';
+import { getUsers, createUser, updateUser, deleteUser, filterAttendanceLogs } from '../../services/api';
 
 interface User {
     id: number;
@@ -12,6 +12,24 @@ interface User {
     is_active: boolean;
     is_admin: boolean;
     created_at: string;
+}
+
+interface AttendanceLog {
+    id: number;
+    rfid_uid: string;
+    timestamp: string;
+    device_id: string;
+    code: string;
+    error_code: string | null;
+}
+
+interface Pagination {
+    page: number;
+    per_page: number;
+    total_items: number;
+    total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
 }
 
 const ManagerTab = () => {
@@ -37,6 +55,21 @@ const ManagerTab = () => {
     });
     const [submitting, setSubmitting] = useState(false);
 
+    // copy rfid state
+    const [copiedRfid, setCopiedRfid] = useState<string | null>(null);
+
+    // user logs for edit modal
+    const [userLogs, setUserLogs] = useState<AttendanceLog[]>([]);
+    const [logsLoading, setLogsLoading] = useState(false);
+    const [logsPagination, setLogsPagination] = useState<Pagination>({
+        page: 1,
+        per_page: 5,
+        total_items: 0,
+        total_pages: 0,
+        has_next: false,
+        has_prev: false
+    });
+
     // lấy danh sách users
     const fetchUsers = async () => {
         setLoading(true);
@@ -51,9 +84,42 @@ const ManagerTab = () => {
         }
     };
 
+    // lấy logs của user được chọn
+    const fetchUserLogs = async (rfidUid: string, logsPage: number = 1) => {
+        setLogsLoading(true);
+        try {
+            const response = await filterAttendanceLogs({
+                rfid_uid: rfidUid,
+                page: logsPage,
+                per_page: logsPagination.per_page
+            });
+            setUserLogs(response.data?.attendance_logs || []);
+            setLogsPagination(prev => ({
+                ...prev,
+                ...response.data?.pagination,
+                page: logsPage
+            }));
+        } catch (err) {
+            console.error('Failed to fetch user logs:', err);
+        } finally {
+            setLogsLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchUsers();
     }, [page, perPage]);
+
+    // copy rfid to clipboard
+    const handleCopyRfid = async (rfid: string) => {
+        try {
+            await navigator.clipboard.writeText(rfid);
+            setCopiedRfid(rfid);
+            setTimeout(() => setCopiedRfid(null), 2000);
+        } catch (err) {
+            showToast('error', 'Failed to copy');
+        }
+    };
 
     // reset form
     const resetForm = () => {
@@ -63,6 +129,15 @@ const ManagerTab = () => {
             rfid_uid: '',
             is_admin: false,
             is_active: true,
+        });
+        setUserLogs([]);
+        setLogsPagination({
+            page: 1,
+            per_page: 5,
+            total_items: 0,
+            total_pages: 0,
+            has_next: false,
+            has_prev: false
         });
     };
 
@@ -83,6 +158,8 @@ const ManagerTab = () => {
             is_active: user.is_active,
         });
         setShowEditModal(true);
+        // fetch logs for this user
+        fetchUserLogs(user.rfid_uid, 1);
     };
 
     // đóng modals
@@ -151,6 +228,12 @@ const ManagerTab = () => {
         }
     };
 
+    // format datetime
+    const formatDateTime = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return date.toLocaleString('vi-VN');
+    };
+
     return (
         <div className="space-y-6">
             {/* header */}
@@ -201,7 +284,24 @@ const ManagerTab = () => {
                                                 </div>
                                             </td>
                                             <td className="p-3 text-neu-light-text dark:text-neu-dark-text">{user.email}</td>
-                                            <td className="p-3 text-neu-light-text dark:text-neu-dark-text font-mono text-sm">{user.rfid_uid}</td>
+                                            <td className="p-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-neu-light-text dark:text-neu-dark-text font-mono text-sm">
+                                                        {user.rfid_uid}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => handleCopyRfid(user.rfid_uid)}
+                                                        className="p-1 rounded hover:bg-neu-light-bg dark:hover:bg-neu-dark-bg transition-colors"
+                                                        title={t('manager.copyRfid')}
+                                                    >
+                                                        {copiedRfid === user.rfid_uid ? (
+                                                            <Check className="w-3.5 h-3.5 text-green-500" />
+                                                        ) : (
+                                                            <Copy className="w-3.5 h-3.5 text-neu-light-text/50 dark:text-neu-dark-text/50" />
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </td>
                                             <td className="p-3">
                                                 <span className={`px-2 py-1 rounded text-xs font-medium ${user.is_active
                                                     ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
@@ -393,108 +493,192 @@ const ManagerTab = () => {
                 </div>
             )}
 
-            {/* edit modal */}
+            {/* edit modal with logs */}
             {showEditModal && selectedUser && (
                 <div
                     className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in"
                     onClick={closeModals}
                 >
                     <div
-                        className="neu-card max-w-md w-full mx-4 animate-scale-in"
+                        className="neu-card max-w-4xl w-full mx-4 animate-scale-in max-h-[90vh] overflow-hidden flex flex-col"
                         onClick={e => e.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center justify-between mb-4">
                             <h3 className="text-xl font-bold text-neu-light-text dark:text-neu-dark-text">
-                                {t('manager.editUser')}
+                                {t('manager.editUser')} - {selectedUser.full_name}
                             </h3>
                             <button onClick={closeModals} className="neu-icon-button p-2">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <form onSubmit={handleUpdate} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-neu-light-text dark:text-neu-dark-text mb-2">
-                                    {t('manager.name')} *
-                                </label>
-                                <input
-                                    type="text"
-                                    name="full_name"
-                                    value={formData.full_name}
-                                    onChange={handleChange}
-                                    required
-                                    className="neu-input"
-                                />
+                        <div className="flex gap-6 flex-1 overflow-hidden">
+                            {/* form bên trái - thu gọn */}
+                            <div className="w-72 flex-shrink-0">
+                                <form onSubmit={handleUpdate} className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-neu-light-text dark:text-neu-dark-text mb-1">
+                                            {t('manager.name')} *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="full_name"
+                                            value={formData.full_name}
+                                            onChange={handleChange}
+                                            required
+                                            className="neu-input text-sm py-2"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-neu-light-text dark:text-neu-dark-text mb-1">
+                                            {t('manager.email')} *
+                                        </label>
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            required
+                                            className="neu-input text-sm py-2"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-neu-light-text dark:text-neu-dark-text mb-1">
+                                            {t('manager.rfid')} *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="rfid_uid"
+                                            value={formData.rfid_uid}
+                                            onChange={handleChange}
+                                            required
+                                            className="neu-input text-sm py-2"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-4">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                name="is_admin"
+                                                checked={formData.is_admin}
+                                                onChange={handleChange}
+                                                className="w-4 h-4 rounded"
+                                            />
+                                            <span className="text-sm text-neu-light-text dark:text-neu-dark-text">Admin</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                name="is_active"
+                                                checked={formData.is_active}
+                                                onChange={handleChange}
+                                                className="w-4 h-4 rounded"
+                                            />
+                                            <span className="text-sm text-neu-light-text dark:text-neu-dark-text">{t('profile.active')}</span>
+                                        </label>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-3">
+                                        <button
+                                            type="button"
+                                            onClick={closeModals}
+                                            className="neu-button flex-1 text-sm py-2"
+                                        >
+                                            {t('common.cancel')}
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={submitting}
+                                            className="neu-button flex-1 bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-50 text-sm py-2"
+                                        >
+                                            {submitting ? t('common.loading') : t('common.save')}
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-neu-light-text dark:text-neu-dark-text mb-2">
-                                    {t('manager.email')} *
-                                </label>
-                                <input
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    required
-                                    className="neu-input"
-                                />
-                            </div>
+                            {/* logs bên phải */}
+                            <div className="flex-1 flex flex-col min-w-0 overflow-hidden border-l border-neu-light-shadow/20 dark:border-neu-dark-shadow/20 pl-6">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="text-sm font-bold text-neu-light-text dark:text-neu-dark-text">
+                                        {t('manager.userLogs')}
+                                    </h4>
+                                    <span className="text-xs text-neu-light-text/60 dark:text-neu-dark-text/60">
+                                        {logsPagination.total_items} {t('manager.records')}
+                                    </span>
+                                </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-neu-light-text dark:text-neu-dark-text mb-2">
-                                    {t('manager.rfid')} *
-                                </label>
-                                <input
-                                    type="text"
-                                    name="rfid_uid"
-                                    value={formData.rfid_uid}
-                                    onChange={handleChange}
-                                    required
-                                    className="neu-input"
-                                />
-                            </div>
+                                {/* logs table với scroll */}
+                                <div className="flex-1 overflow-auto min-h-0">
+                                    {logsLoading ? (
+                                        <div className="flex justify-center py-8">
+                                            <div className="w-6 h-6 border-3 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                                        </div>
+                                    ) : userLogs.length === 0 ? (
+                                        <div className="text-center py-8 text-sm text-neu-light-text/60 dark:text-neu-dark-text/60">
+                                            {t('devices.noLogs')}
+                                        </div>
+                                    ) : (
+                                        <table className="w-full text-sm">
+                                            <thead className="sticky top-0 bg-neu-light-surface dark:bg-neu-dark-surface">
+                                                <tr className="border-b border-neu-light-shadow/20 dark:border-neu-dark-shadow/20">
+                                                    <th className="p-2 text-left text-xs text-neu-light-text dark:text-neu-dark-text">{t('logs.timestamp')}</th>
+                                                    <th className="p-2 text-left text-xs text-neu-light-text dark:text-neu-dark-text">{t('logs.device')}</th>
+                                                    <th className="p-2 text-left text-xs text-neu-light-text dark:text-neu-dark-text">{t('logs.code')}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {userLogs.map(log => (
+                                                    <tr key={log.id} className="border-b border-neu-light-shadow/10 dark:border-neu-dark-shadow/10">
+                                                        <td className="p-2 text-xs text-neu-light-text dark:text-neu-dark-text">
+                                                            {formatDateTime(log.timestamp)}
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <span className="font-mono text-xs text-primary-500">{log.device_id}</span>
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium
+                                                                ${log.code === 'REALTIME'
+                                                                    ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                                                                    : 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                                                                }`}>
+                                                                {log.code}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
 
-                            <div className="flex gap-4">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        name="is_admin"
-                                        checked={formData.is_admin}
-                                        onChange={handleChange}
-                                        className="w-5 h-5 rounded"
-                                    />
-                                    <span className="text-neu-light-text dark:text-neu-dark-text">Admin</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        name="is_active"
-                                        checked={formData.is_active}
-                                        onChange={handleChange}
-                                        className="w-5 h-5 rounded"
-                                    />
-                                    <span className="text-neu-light-text dark:text-neu-dark-text">{t('profile.active')}</span>
-                                </label>
+                                {/* logs pagination */}
+                                {logsPagination.total_pages > 1 && (
+                                    <div className="flex items-center justify-center gap-2 pt-3 border-t border-neu-light-shadow/20 dark:border-neu-dark-shadow/20 mt-3">
+                                        <button
+                                            disabled={!logsPagination.has_prev}
+                                            onClick={() => fetchUserLogs(selectedUser.rfid_uid, logsPagination.page - 1)}
+                                            className="p-1 disabled:opacity-50"
+                                        >
+                                            <ChevronLeft className="w-4 h-4" />
+                                        </button>
+                                        <span className="text-xs text-neu-light-text dark:text-neu-dark-text">
+                                            {logsPagination.page} / {logsPagination.total_pages}
+                                        </span>
+                                        <button
+                                            disabled={!logsPagination.has_next}
+                                            onClick={() => fetchUserLogs(selectedUser.rfid_uid, logsPagination.page + 1)}
+                                            className="p-1 disabled:opacity-50"
+                                        >
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-
-                            <div className="flex gap-3 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={closeModals}
-                                    className="neu-button flex-1"
-                                >
-                                    {t('common.cancel')}
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="neu-button flex-1 bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-50"
-                                >
-                                    {submitting ? t('common.loading') : t('common.save')}
-                                </button>
-                            </div>
-                        </form>
+                        </div>
                     </div>
                 </div>
             )}

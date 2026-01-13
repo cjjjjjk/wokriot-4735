@@ -4,6 +4,7 @@ import Header from '../components/dashboard/Header';
 import GeneralTab from '../components/dashboard/GeneralTab';
 import ProfileTab from '../components/dashboard/ProfileTab';
 import ManagerTab from '../components/dashboard/ManagerTab';
+import DevicesTab from '../components/dashboard/DevicesTab';
 
 const Dashboard = () => {
     const { user } = useAuth();
@@ -17,6 +18,8 @@ const Dashboard = () => {
                 return <ProfileTab />;
             case 'manager':
                 return user?.is_admin ? <ManagerTab /> : null;
+            case 'devices':
+                return user?.is_admin ? <DevicesTab /> : null;
             default:
                 return <GeneralTab />;
         }

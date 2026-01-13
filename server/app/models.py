@@ -59,6 +59,46 @@ class User(db.Model):
 # - error_code: varchar, mã lỗi
 # - created_at: datetime, server time
 
+# model Device:
+# - id: int, primary key
+# - device_id: varchar, unique, ID của ESP32
+# - name: varchar, tên hiển thị của thiết bị
+# - is_active: bool, trạng thái hoạt động của thiết bị
+# - door_state: varchar, trạng thái cửa (OPEN/CLOSED)
+# - rfid_enabled: bool, cho phép quẹt thẻ RFID hay không
+# - last_seen: datetime, lần cuối thiết bị gửi data
+# - created_at: datetime, thời gian tạo
+
+class Device(db.Model):
+    __tablename__ = 'devices'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    device_id = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    # trạng thái cửa: 'OPEN' hoặc 'CLOSED'
+    door_state = db.Column(db.String(20), default='CLOSED')
+    # cho phép quẹt thẻ rfid hay không
+    rfid_enabled = db.Column(db.Boolean, default=True)
+    last_seen = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    
+    def __repr__(self):
+        return f'<Device {self.device_id}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'device_id': self.device_id,
+            'name': self.name,
+            'is_active': self.is_active,
+            'door_state': self.door_state,
+            'rfid_enabled': self.rfid_enabled,
+            'last_seen': self.last_seen.isoformat() if self.last_seen else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
 class Attendance_logs(db.Model):
     __tablename__ = 'attendance_logs'
     

@@ -147,4 +147,60 @@ export const updateMe = async (userData: {
     return response.data;
 };
 
+// === DEVICE MANAGEMENT API (admin only) ===
+
+// interface cho device
+export interface Device {
+    id: number;
+    device_id: string;
+    name: string;
+    is_active: boolean;
+    door_state: 'OPEN' | 'CLOSED';
+    rfid_enabled: boolean;
+    last_seen: string | null;
+    created_at: string;
+}
+
+// lấy danh sách devices (admin only)
+export const getDevices = async (): Promise<{ data: Device[]; is_success: boolean; message: string }> => {
+    const response = await api.get('/devices');
+    return response.data;
+};
+
+// lấy thông tin một device (admin only)
+export const getDeviceById = async (deviceId: string) => {
+    const response = await api.get(`/devices/${deviceId}`);
+    return response.data;
+};
+
+// điều khiển cửa (mở/đóng) - admin only
+export const controlDoor = async (deviceId: string, action: 'OPEN' | 'CLOSE') => {
+    const response = await api.post(`/devices/${deviceId}/door`, { action });
+    return response.data;
+};
+
+// bật/tắt chức năng quẹt thẻ RFID - admin only
+export const controlRfid = async (deviceId: string, enabled: boolean) => {
+    const response = await api.post(`/devices/${deviceId}/rfid`, { enabled });
+    return response.data;
+};
+
+// kích hoạt/vô hiệu hoá thiết bị - admin only
+export const controlDeviceActivation = async (deviceId: string, active: boolean) => {
+    const response = await api.post(`/devices/${deviceId}/activate`, { active });
+    return response.data;
+};
+
+// cập nhật thông tin device - admin only
+export const updateDevice = async (deviceId: string, data: { name?: string }) => {
+    const response = await api.put(`/devices/${deviceId}`, data);
+    return response.data;
+};
+
+// xoá device - admin only
+export const deleteDevice = async (deviceId: string) => {
+    const response = await api.delete(`/devices/${deviceId}`);
+    return response.data;
+};
+
 export default api;
