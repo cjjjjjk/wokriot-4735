@@ -15,7 +15,7 @@ class AppConfig {
     }
 
     // 3. iOS/Windows/Linux -> localhost
-    return '127.0.0.1';
+    return '192.168.1.250';
   }
 
   static String get serverPort => dotenv.env['SERVER_PORT'] ?? '5000';

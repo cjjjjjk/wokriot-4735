@@ -8,7 +8,7 @@ class ApiService {
   // - Nếu chạy trên điện thoại thật: dùng IP LAN của máy tính (VD: 'http://192.168.1.15:3000/api')
   // - Đừng dùng 'localhost' nếu chạy trên điện thoại/máy ảo!
   // SỬA LẠI DÒNG NÀY:
-  static const String baseUrl = 'http://192.168.1.59:3000/api';
+  static const String baseUrl = 'http://172.23.143.174:5000/api';
 
   // 1. Hàm Đăng nhập
   static Future<bool> login(String username, String password) async {

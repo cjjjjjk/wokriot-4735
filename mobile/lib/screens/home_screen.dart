@@ -32,12 +32,16 @@ class _HomeScreenState extends State<HomeScreen> {
   String _fullName = "Đang tải...";
   String _userId = "---";
 
-  // Biến trạng thái giao diện
-  String _todayStatus = "Chưa Check-in";
-  String _lastCheckTime = "--:--";
-  Color _statusColor = Colors.grey;
-  IconData _statusIcon = Icons.fingerprint;
+  // --- QUẢN LÝ TRẠNG THÁI ---
+  String _currentStatus = "NONE";
+  String _displayTime = "--:--";
+
+  // biến cho ui mới
   bool _isLoading = true;
+  Color _statusColor = Colors.grey;
+  IconData _statusIcon = Icons.info_outline;
+  String _todayStatus = "Chưa có dữ liệu";
+  String _lastCheckTime = "--:--";
 
   // Biến cho Biểu đồ
   List<double> _weeklyData = [0, 0, 0, 0, 0, 0, 0]; // Mặc định 7 ngày = 0
@@ -49,9 +53,31 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserInfo();
+    _loadHistory();
     _fetchTodayData();
     _fetchWeeklyData();
     _setupMqtt();
+  }
+
+  // --- 1. TẢI LỊCH SỬ TỪ MÁY ---
+  Future<void> _loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? historyString = prefs.getString('ATTENDANCE_HISTORY');
+    if (historyString != null) {
+      if (mounted) {
+        setState(() {
+          _history.clear();
+          _history.addAll(AttendanceHistory.decode(historyString));
+        });
+      }
+    }
+  }
+
+  // --- 2. LƯU LỊCH SỬ VÀO MÁY ---
+  Future<void> _saveHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String encodedData = AttendanceHistory.encode(_history);
+    await prefs.setString('ATTENDANCE_HISTORY', encodedData);
   }
 
   Future<void> _loadUserInfo() async {
@@ -64,8 +90,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- LOGIC GỌI API ĐỂ LẤY TRẠNG THÁI BAN ĐẦU ---
+  // --- 3. LẤY TRẠNG THÁI TỪ SERVER (ĐÃ SỬA LOGIC PARSE JSON) ---
   Future<void> _fetchTodayData() async {
+    print("------- BẮT ĐẦU GỌI API -------");
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('ACCESS_TOKEN');
 
@@ -83,6 +110,8 @@ class _HomeScreenState extends State<HomeScreen> {
           "Authorization": "Bearer $token",
         },
       ).timeout(const Duration(seconds: 5));
+
+      print("Response Body: ${response.body}"); // Xem log ở đây
 
       if (response.statusCode == 200) {
         final bodyJSON = jsonDecode(response.body);
@@ -108,7 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _updateUI(status, time);
       }
     } catch (e) {
-      print("LOG: Lỗi kết nối API: $e");
+      print("LỖI KẾT NỐI API: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -186,6 +215,53 @@ class _HomeScreenState extends State<HomeScreen> {
     _mqttService.onDataReceived = (status, msg, time) async {
       if (!mounted) return;
 
+      final now = DateTime.now();
+      final String realTime =
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+      // --- CHẶN LẶP LẠI ---
+      if (status == "CHECK_IN") {
+        if (_currentStatus == "CHECK_IN") {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Bạn đã Check-in rồi!"),
+            backgroundColor: Colors.redAccent,
+          ));
+          return;
+        }
+        if (_currentStatus == "CHECK_OUT") {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Bạn đã hoàn thành ca làm việc rồi!"),
+            backgroundColor: Colors.redAccent,
+          ));
+          return;
+        }
+      }
+
+      if (status == "CHECK_OUT") {
+        if (_currentStatus == "CHECK_OUT") {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Bạn đã Check-out rồi!"),
+            backgroundColor: Colors.redAccent,
+          ));
+          return;
+        }
+        if (_currentStatus == "NONE") {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Bạn chưa Check-in thì không thể Check-out!"),
+            backgroundColor: Colors.redAccent,
+          ));
+          return;
+        }
+      }
+
+      // --- XỬ LÝ THÀNH CÔNG ---
+      String successMessage = "";
+      if (status == "CHECK_IN") {
+        successMessage = "Bạn đã Check-in thành công!";
+      } else {
+        successMessage = "Bạn đã Check-out thành công!";
+      }
+
       setState(() => _isLoading = false);
       _updateUI(status, time);
 
@@ -208,36 +284,108 @@ class _HomeScreenState extends State<HomeScreen> {
             0,
             AttendanceHistory(
               date: DateTime.now().toString().split(' ')[0],
-              checkIn: status == "CHECK_IN" ? time : "--:--",
-              checkOut: status == "CHECK_OUT" ? time : "--:--",
+              checkIn: status == "CHECK_IN" ? realTime : "--:--",
+              checkOut: status == "CHECK_OUT" ? realTime : "--:--",
               status: status == "CHECK_IN" ? "Vào làm" : "Ra về",
             ));
       });
 
+      _saveHistory();
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: _statusColor),
+        SnackBar(
+            content: Text("$successMessage (Lúc $realTime)"),
+            backgroundColor: Colors.blueAccent),
       );
     };
   }
 
+  // cập nhật giao diện dựa trên trạng thái
   void _updateUI(String status, String time) {
     if (!mounted) return;
+
     setState(() {
+      _currentStatus = status;
+      _displayTime = time;
       _lastCheckTime = time;
-      if (status == "CHECK_IN") {
-        _todayStatus = "Đã vào (Check-in)";
-        _statusColor = Colors.green;
-        _statusIcon = Icons.login;
-      } else if (status == "CHECK_OUT") {
-        _todayStatus = "Đã về (Check-out)";
-        _statusColor = Colors.orange;
-        _statusIcon = Icons.logout;
-      } else {
-        _todayStatus = "Chưa Check-in";
-        _statusColor = Colors.grey;
-        _statusIcon = Icons.fingerprint;
+
+      switch (status) {
+        case "CHECK_IN":
+          _statusColor = Colors.orange.shade700;
+          _statusIcon = Icons.timer;
+          _todayStatus = "Đang làm việc";
+          break;
+        case "CHECK_OUT":
+          _statusColor = Colors.green.shade700;
+          _statusIcon = Icons.check_circle_outline;
+          _todayStatus = "Đã hoàn thành";
+          break;
+        default:
+          _statusColor = Colors.blue.shade700;
+          _statusIcon = Icons.login;
+          _todayStatus = "Sẵn sàng";
       }
     });
+  }
+
+  // --- 5. WIDGET TRẠNG THÁI (ĐÃ SỬA LỖI Colors -> Icons) ---
+  Widget _buildStatusCard() {
+    Color cardColor;
+    String statusTitle;
+    String statusDesc;
+    IconData statusIcon; // Đổi type thành IconData
+
+    switch (_currentStatus) {
+      case "CHECK_IN":
+        cardColor = Colors.orange.shade700;
+        statusTitle = "ĐANG LÀM VIỆC";
+        statusDesc = "Đã vào lúc $_displayTime.\nĐừng quên Check-out khi về!";
+        statusIcon = Icons.timer; // ĐÃ SỬA: Dùng Icons thay vì Colors
+        break;
+      case "CHECK_OUT":
+        cardColor = Colors.green.shade700;
+        statusTitle = "ĐÃ HOÀN THÀNH";
+        statusDesc = "Đã về lúc $_displayTime.\nHẹn gặp lại bạn vào ngày mai!";
+        statusIcon = Icons.check_circle_outline; // ĐÃ SỬA
+        break;
+      default: // NONE
+        cardColor = Colors.blue.shade700;
+        statusTitle = "SẴN SÀNG";
+        statusDesc = "Vui lòng quét mã để Check-in\nbắt đầu ca làm việc.";
+        statusIcon = Icons.login; // ĐÃ SỬA
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+              color: cardColor.withOpacity(0.4),
+              blurRadius: 10,
+              offset: const Offset(0, 5))
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(statusIcon, size: 45, color: Colors.white),
+          const SizedBox(height: 10),
+          Text(
+            statusTitle,
+            style: const TextStyle(
+                fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            statusDesc,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, color: Colors.white70),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
