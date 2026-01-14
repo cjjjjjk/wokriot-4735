@@ -8,3 +8,4 @@ pyjwt
 python-dotenv
 werkzeug
 pymysql
+cryptography
