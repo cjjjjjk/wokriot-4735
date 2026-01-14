@@ -1,0 +1,44 @@
+# python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# virtual environment
+venv/
+env/
+ENV/
+
+# ide files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# environment files
+.env
+
+# git files
+.git/
+.gitignore
+
+# docker files
+Dockerfile
+docker-compose.yaml
+.dockerignore
+
+# documentation
+docs/
+*.md
+
+# test files
+tests/
+*.pytest_cache/
+
+# database files
+*.db
+*.sqlite3
+
+# logs
+*.log

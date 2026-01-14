@@ -1,4 +1,5 @@
 from flask import request, current_app
+from flasgger import swag_from
 from app.extensions import db
 from app.models import User
 from . import api_bp
@@ -22,6 +23,71 @@ def generate_token(user):
 # URL: POST /api/login
 @api_bp.route('/login', methods=['POST'])
 def login():
+    """
+    user login endpoint
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+            - password
+          properties:
+            email:
+              type: string
+              example: "admin@gmail.com"
+            password:
+              type: string
+              example: "1"
+    responses:
+      200:
+        description: login successful
+        schema:
+          type: object
+          properties:
+            is_success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: "dang nhap thanh cong"
+            data:
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                user:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1
+                    email:
+                      type: string
+                      example: "admin@gmail.com"
+                    full_name:
+                      type: string
+                      example: "Administrator"
+                    rfid_uid:
+                      type: string
+                      example: "ADMIN001"
+                    is_admin:
+                      type: boolean
+                      example: true
+                    is_active:
+                      type: boolean
+                      example: true
+      400:
+        description: missing required fields
+      401:
+        description: invalid credentials
+    """
     data = request.get_json()
 
     if not data or 'email' not in data or 'password' not in data:

@@ -1,133 +1,170 @@
-# **WOKRIOT-4735** | Hệ thống Chấm công Đa điểm + Ứng dụng
+# **WOKRIOT-4735** | Hệ thống Chấm công IoT
 
-### 1. Tổng quan
-Mô hình hướng tới trải nghiệm người dùng tối giản (User-centric): Nhân viên đến chỉ cần quẹt thẻ, hệ thống tự tính toán chiều vào/ra.
+## 1. Tổng quan
 
-* **ESP32 (Core):** Gateway trung tâm.
-* **RFID RC522:** Đọc thẻ nhân viên.
-* **Bàn phím 4x4 (Keypad):** Chỉ dùng cho các trường hợp đặc biệt (Xin OT, Reset), không bắt buộc dùng hàng ngày.
-* **LED RGB:** Trạng thái cửa
-    * *Xanh lá:* Hợp lệ / Mở cửa.
-    * *Đỏ:* Lỗi / Từ chối truy cập / Đi sai ca.
-    * *Vàng:* Mất kết nối mạng (Chế độ Offline).
-* **Còi (Buzzer):** Phát âm thanh bíp ngắn (OK) hoặc 2-bíp  (Cảnh báo/Lỗi).
-* **LCD (I2C):** Hiển thị tên, giờ, trạng thái (Đi muộn/Về sớm).
+Hệ thống chấm công sử dụng thẻ RFID kết hợp ESP32, cho phép quản lý thời gian làm việc của nhân viên thông qua giao thức MQTT realtime.
 
-### 2. Chức năng
+### Thành phần hệ thống:
+- **ESP32 DevKit V1:** Vi xử lý trung tâm, gateway kết nối MQTT
+- **RFID RC522:** Đọc thẻ nhân viên
+- **LCD 1602 I2C:** Hiển thị thông tin người dùng, trạng thái
+- **Servo Motor:** Điều khiển cửa (mở/đóng)
+- **Buzzer:** Phát âm thanh thông báo
 
-#### A. Chấm công "Một chạm" (Smart Auto-Detection)
-* **Logic thông minh (Time-window Logic):**
-    * **sáng (06:00 - 11:30):** Mặc định hiểu là **Check-in**.
-    * **chiều (16:00 - 20:00):** Mặc định hiểu là **Check-out**.
-    * **Giữa giờ:** Quẹt thẻ kèm nhấn nút
-    * **Sau giờ:** Chọn OT (keyboard) -> Tạo đơn OT pending edit (nếu chưa có trong ngày).
+## 2. Kiến trúc hệ thống
 
-#### B. Chế độ Hoạt động Offline (Offline First)
-* Tính năng lưu trữ vào Flash/SD Card khi mất WiFi và tự động đồng bộ (Sync) khi có mạng để đảm bảo dữ liệu luôn chính xác.
+```
+┌─────────────┐         ┌─────────────────┐         ┌─────────────┐         ┌─────────────┐
+│   ESP32     │ ◄─────► │   MQTT Broker   │ ◄─────► │   Flask     │ ◄─────► │   MySQL     │
+│  (Device)   │  MQTT   │  (broker.emqx)  │  MQTT   │  (Server)   │         │             |  
+└─────────────┘         └─────────────────┘         └─────────────┘         └─────────────┘
+                                                           │
+                                                         REST API
+                                    ┌──────────────────────┼  
+                                    │                      │  
+                             ┌──────▼──────┐        ┌──────▼──────┐  
+                             │   Web App   │        │ Mobile App  │  
+                             │   (React)   │        │  (Flutter)  │  
+                             └─────────────┘        └─────────────┘  
+```
 
-#### C. Quy trình xin OT & Nghỉ phép
-* **Quy trình:**
-    1.  Nhân viên tạo yêu cầu OT trên **Mobile/ Web**.
-    2.  Quản lý duyệt trên **Web Admin**.
-    3.  Lệnh được đẩy xuống **ESP32**.
-    4.  Khi nhân viên quẹt thẻ về muộn. Checkout trong OT đã submit
+### MQTT Topics:
+| Topic | Hướng | Mô tả |
+|-------|-------|-------|
+| `esp32/{device_id}/attendance` | ESP32 → Server | Gửi dữ liệu quẹt thẻ |
+| `esp32/{device_id}/response` | Server → ESP32 | Phản hồi kết quả xác thực |
+| `esp32/{device_id}/control` | Server → ESP32 | Gửi lệnh điều khiển |
+| `esp32/{device_id}/control_response` | ESP32 → Server | Phản hồi lệnh điều khiển |
 
-### 3. Mobile & Website
+## 3. Chức năng
 
-#### A. Mobile App
-* **Trang chủ:** Trạng thái chấm công hôm nay (Đã Check-in lúc 7:55).
-* **Lịch sử:** Xem lịch sử chấm công.
-* **Đơn từ:** Form gửi đơn xin nghỉ phép, xin đi muộn, xin làm thêm giờ (OT).
-* **Thông báo (Push Notification):**
-    * "checked in successfully."
-    * "[!!] you did not check out on [date]."
+### A. ESP32 - Thiết bị chấm công
+- Quẹt thẻ RFID để ghi nhận chấm công
+- Hiển thị thông tin trên LCD (tên, trạng thái)
+- Điều khiển servo mở/đóng cửa
+- Hỗ trợ nhận lệnh điều khiển từ xa qua MQTT:
+  - `DOOR_OPEN` / `DOOR_CLOSE` - Mở/đóng cửa
+  - `RFID_ENABLE` / `RFID_DISABLE` - Bật/tắt quẹt thẻ
+  - `DEVICE_ACTIVATE` / `DEVICE_DEACTIVATE` - Kích hoạt/vô hiệu hóa thiết bị
 
-#### B. Web 
-* **Dashboard:** 
-* **Kiểm tra thông tin:** Thông tin nhân viên đăng nhập, đơn OT đã/đang/cần hoàn thiện.
-* **Quản lý Nhân sự:** Thêm/Sửa/Xóa nhân viên, gán mã thẻ RFID cho nhân viên.
-* **Quản lý Ca làm việc:** Cấu hình ca làm việc, ca nghỉ, ca nghỉ phép, ca nghỉ OT,....
-* **Báo cáo:** Xuất file Excel bảng công chi tiết (Giờ vào, Giờ ra, Số phút đi muộn, Tổng công) để tính lương.
-* **Điều khiển thiết bị:** Xem trạng thái ESP32 (Online/Offline), Mở cửa từ xa (trong trường hợp khẩn cấp).
-* **Cấu hình thiết bị:** Cấu hình truy cập mạng (wifi, ...), reset, cho ESP32 
+### B. Backend (Flask)
+- **Xác thực:** JWT authentication
+- **REST API:** Quản lý users, attendance logs, devices
+- **MQTT Handler:** Xử lý message từ ESP32, gửi lệnh điều khiển
+- **Database:** MySQL với Flask-SQLAlchemy, Flask-Migrate
 
-### 4. Kiến trúc
+#### API Endpoints chính:
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| POST | `/api/login` | Đăng nhập |
+| GET | `/api/users` | Danh sách users (admin) |
+| GET | `/api/attendance-logs` | Danh sách logs (admin) |
+| GET | `/api/attendance-logs/me` | Logs của user hiện tại |
+| GET | `/api/attendance-logs/filter` | Lọc logs theo điều kiện |
+| GET | `/api/devices` | Danh sách devices |
+| POST | `/api/devices/{id}/door` | Điều khiển cửa |
+| POST | `/api/devices/{id}/rfid` | Bật/tắt RFID |
+| POST | `/api/devices/{id}/activate` | Kích hoạt device |
+| GET | `/api/worked-day/day` | Thông tin làm việc theo ngày |
+| GET | `/api/worked-day/month` | Thông tin làm việc theo tháng |
 
-* **Firmware (ESP32):**
-    * Framework: **Arduino IDE** hoặc **PlatformIO**.
-    * Libraries: `MFRC522` (RFID), `PubSubClient` (MQTT), `ArduinoJson`.
-* **Backend:**
-    * Language: **Node.js** hoặc **Python**.
-    * Protocol: **MQTT** cho giao tiếp thiết bị + **REST API** cho App/Web.
-    * Database: **MySQL** 
-* **Frontend:**
-    * Web Admin: 
-    * Mobile App: **Flutter** 
+### C. Web Frontend (React + Vite)
+- **Login:** Đăng nhập với email/password
+- **General Tab:** 
+  - Biểu đồ giờ làm việc trong tuần
+  - Lịch tháng với thông tin chấm công
+  - Chi tiết logs của user
+- **Profile Tab:** Xem và chỉnh sửa thông tin cá nhân
+- **Manager Tab (Admin):**
+  - Quản lý users (CRUD)
+  - Copy RFID UID
+  - Xem logs của từng user trong modal edit
+- **Devices Tab (Admin):**
+  - Danh sách thiết bị ESP32
+  - Toggle điều khiển: Door, RFID, Activate
+  - Xem attendance logs theo device
+  - Xóa device
 
-### 5. Danh sách thiết bị
+### D. Mobile App (Flutter)
+- Login với email/password
+- Xem trạng thái chấm công hôm nay
+- Xem lịch sử chấm công (theo ngày/tháng)
+- Biểu đồ thống kê tuần
+- Thông tin profile
 
-| STT | Tên linh kiện | Số lượng | Ước tính | Note |
-| :-- | :--- | :--- | :--- | :--- |
-| 1 | ESP32 DevKit V1 | 1 | ~90k | Vi xử lý trung tâm |
-| 2 | Module RFID RC522 | 1 | ~25k | Kèm thẻ trắng & móc khóa |
-| 3 | Màn hình LCD 1602 + I2C | 1 | ~35k | Hiển thị thông tin |
-| 4 | Bàn phím Ma trận 4x4 | 1 | ~15k | Nhập liệu khi cần |
-| 5 | Module Relay 5V (1 kênh) | 1 | ~15k | Đóng ngắt khóa cửa |
-| 6 | Khóa chốt điện từ (Solenoid) | 1 | ~80k - 100k | Demo khóa cửa (hoặc dùng Servo cho rẻ) |
-| 7 | Còi chip (Active Buzzer) | 1 | ~2k | Báo âm thanh |
-| 8 | Breadboard + Dây cắm | 1 bộ | ~50k | Đấu nối mạch |
-| 9 | Nguồn Adapter 5V | 1 | ~30k | Cấp nguồn cho ESP32 |
+## 4. Cấu trúc thư mục
 
-### 6. Phân chia công việc 
+```
+workiniot-4735/
+├── docs/                    # Tài liệu
+├── embedded/               
+│   └── arduino/             # Code ESP32 (Arduino)
+├── server/                  # Backend Flask
+│   ├── app/
+│   │   ├── api/             # API endpoints
+│   │   ├── models.py        # Database models
+│   │   ├── utils/           # Helpers, decorators
+│   │   └── extensions.py    # Flask extensions
+│   ├── docker-compose.yaml
+│   ├── Dockerfile
+│   └── requirements.txt
+├── web-frontend/            # React + Vite
+│   └── src/
+│       ├── components/
+│       ├── contexts/
+│       ├── pages/
+│       └── services/
+└── mobile/                  # Flutter app
+    └── lib/
+        ├── screens/
+        ├── providers/
+        └── services/
+```
 
-#### **1: Hardware**
-* **Nhiệm vụ:**
-    * Đấu nối mạch hoàn chỉnh, đóng hộp mô hình.
-    * Code ESP32: Đọc thẻ, điều khiển LCD/Relay.
-    * **Quan trọng:** Xử lý logic **"Offline Mode"** (Lưu vào Flash) và logic **"Smart Detect"** (Tự nhận diện sáng/chiều dựa trên giờ hệ thống - NTP Client).
+## 5. Công nghệ sử dụng
 
-#### **2: Backend & System Architect**
-* **Nhiệm vụ:**
-    * Dựng MQTT Broker, Database.
-    * Viết API xử lý logic chấm công: Ghép cặp (Pairing) giờ vào/ra, tính toán phút đi muộn.
-    * Viết script giả lập 1000 user để test tải (Load Testing).
-    * APIs chức năng
+| Layer | Công nghệ |
+|-------|-----------|
+| Firmware | Arduino IDE, ESP32, MFRC522, PubSubClient, ArduinoJson |
+| Backend | Python, Flask, Flask-SQLAlchemy, Flask-MQTT, JWT |
+| Database | MySQL 8.0 |
+| Web Frontend | React, TypeScript, Vite, Tailwind CSS, Axios |
+| Mobile | Flutter, Dart, Provider |
+| Protocol | MQTT (broker.emqx.io), REST API |
+| Deploy | Docker, Docker Compose |
 
-#### **3: Web**
-* **Nhiệm vụ:**
-    * Dashboard quản lý: (thẻ - nhân viên, thông báo, logs, cấu hình time checkout/checkin, chia ca, cấu hình ca (default, ot, hybrid))
-    * Thống kê, chỉnh sửa và xuất báo cáo Excel (Export).
-    * Từng nhân viên (tài khoản đăng nhập), nhiều nhân viên (manager).
+## 6. Hướng dẫn chạy
 
-#### **4: Mobile App**
-* **Nhiệm vụ:**
-    * Viết App cho nhân viên (Flutter).
-    * Login, xem lịch sử, Push Notification.
-    * Tạo QR Code định danh cá nhân trên App. (optional)
+### Backend (Server)
+```bash
+cd server
 
-### Demo
-1.  **Cảnh 1 (Sáng đi làm - Chuẩn):**
-    * NV A đến lúc 7-8:00 (Giờ hệ thống).
-    * **Thao tác:** Chỉ cần quẹt thẻ.
-    * **Hệ thống:** Tự hiểu là CHECK-IN. Còi kêu 1 bíp. Cửa mở.
-    * **Web Dashboard:** Hiện ngay lập tức dòng log: *"Nguyễn Văn A - Check IN - 07:00:05"*.
+# chạy với docker
+docker compose up -d --build
 
-2.  **Cảnh 2 (Chiều về - Chuẩn):**
-    * NV A về sau 15:30.
-    * **Thao tác:** Quẹt thẻ.
-    * **Hệ thống:** Tự hiểu là CHECK-OUT.
-    * **App:** Báo thông báo: *"check out successfully."*.
+```
+## 7. Database Models
 
-3.  **Cảnh 3 (Đi muộn/Sự cố):**
-    * NV B đến lúc 9:00 (Quá giờ).
-    * **Thao tác:** Quẹt thẻ.
-    * **Hệ thống:** Còi kêu 2 bíp (Cảnh báo). LCD báo "check in/out late". LED xanh
-    * **Hệ thống:** Còi kêu 2 bíp (Cảnh báo). LCD báo "err: err_code". LED đỏ
-    * **Hệ thống:** Còi kêu 2 bíp (Cảnh báo). LCD báo "card forbidden". LED đỏ
-    * **Backend:** Ghi nhận lỗi đi muộn vào Database.
+### User
+- `id`, `rfid_uid`, `email`, `password_hash`
+- `full_name`, `is_active`, `is_admin`
+- `created_at`
 
-4.  **Cảnh 4 (Check tải):**
-    * Thành viên Backend chạy script.
-    * Màn hình Web Dashboard nhảy số liên tục (Số lượng nhân viên Check-in tăng vọt từ 10 -> 2000 trong vài giây). Chứng minh hệ thống chịu tải tốt.  
+### Attendance_logs
+- `id`, `rfid_uid`, `timestamp`
+- `device_id`, `code`, `error_code`
+- `created_at`
 
-5. 
+### Device
+- `id`, `device_id`, `name`
+- `is_active`, `door_state`, `rfid_enabled`
+- `last_seen`, `created_at`
+
+## 8. Phân chia công việc
+
+| Thành viên | Nhiệm vụ |
+|------------|----------|
+| Hardware | Đấu nối mạch ESP32, code firmware Arduino, xử lý RFID/LCD/Servo |
+| Backend | Dựng Flask API, MQTT handlers, database, Docker deploy |
+| Web | Dashboard React, quản lý users, devices, logs, charts |
+| Mobile | App Flutter cho nhân viên xem chấm công, biểu đồ, profile |

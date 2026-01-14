@@ -14,11 +14,72 @@ from app.utils.work_day_calculator import calculate_work_day_data
 @require_auth
 def get_worked_days_by_month():
     """
-    lấy danh sách thông tin làm việc theo tháng cho user hiện tại
-    nếu không có month param, dùng tháng hiện tại
-    nếu là tháng hiện tại: trả về từ ngày 1 đến ngày hiện tại
-    nếu là tháng khác: trả về từ ngày 1 đến ngày cuối tháng
+    get worked days by month for current user
+    ---
+    tags:
+      - Work Day Calculation
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: month
+        type: string
+        description: "month to query (YYYY-MM), defaults to current month"
+        example: "2025-12"
+    responses:
+      200:
+        description: work day data retrieved successfully
+        schema:
+          type: object
+          properties:
+            is_success:
+              type: boolean
+              example: true
+            message:
+              type: string
+            data:
+              type: object
+              properties:
+                month:
+                  type: string
+                  example: "2025-12"
+                worked_days:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                        example: "2025-12-01"
+                      times:
+                        type: array
+                        description: "list of check-in/out times with status"
+                        items:
+                          type: array
+                          example: ["08:00", "SUCCESS"]
+                      total_times:
+                        type: number
+                        example: 8.5
+                        description: "total work hours"
+                      type:
+                        type: number
+                        example: 1
+                        description: "1: full day (>=6.5h), 0.5: half day (<6.5h), 0: absent"
+                      ot_times:
+                        type: array
+                        description: "overtime entries after 18:00"
+                        items:
+                          type: array
+                          example: ["18:30", "SUCCESS"]
+      400:
+        description: invalid month format
+      401:
+        description: unauthorized
     """
+    # lấy danh sách thông tin làm việc theo tháng cho user hiện tại
+    # nếu không có month param, dùng tháng hiện tại
+    # nếu là tháng hiện tại: trả về từ ngày 1 đến ngày hiện tại
+    # nếu là tháng khác: trả về từ ngày 1 đến ngày cuối tháng
     try:
         # lấy current user từ request
         current_user = request.current_user
@@ -77,15 +138,199 @@ def get_worked_days_by_month():
         return error_response(str(e), 'SERVER_ERROR', 500)
 
 
+# get worked days by date range for current user
+# URL: GET /api/worked-day/range?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
+@api_bp.route('/worked-day/range', methods=['GET'])
+@require_auth
+def get_worked_days_by_range():
+    """
+    get worked days by date range for current user
+    ---
+    tags:
+      - Work Day Calculation
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: start_date
+        type: string
+        required: true
+        description: "start date (YYYY-MM-DD)"
+        example: "2025-12-29"
+      - in: query
+        name: end_date
+        type: string
+        required: true
+        description: "end date (YYYY-MM-DD)"
+        example: "2026-01-04"
+    responses:
+      200:
+        description: work day data retrieved successfully
+        schema:
+          type: object
+          properties:
+            is_success:
+              type: boolean
+              example: true
+            message:
+              type: string
+            data:
+              type: object
+              properties:
+                start_date:
+                  type: string
+                  example: "2025-12-29"
+                end_date:
+                  type: string
+                  example: "2026-01-04"
+                worked_days:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                        example: "2025-12-29"
+                      times:
+                        type: array
+                        description: "list of check-in/out times with status"
+                        items:
+                          type: array
+                          example: ["08:00", "SUCCESS"]
+                      total_times:
+                        type: number
+                        example: 8.5
+                        description: "total work hours"
+                      type:
+                        type: number
+                        example: 1
+                        description: "1: full day (>=6.5h), 0.5: half day (<6.5h), 0: absent"
+                      ot_times:
+                        type: array
+                        description: "overtime entries after 18:00"
+                        items:
+                          type: array
+                          example: ["18:30", "SUCCESS"]
+      400:
+        description: invalid date format or missing parameters
+      401:
+        description: unauthorized
+    """
+    # lấy danh sách thông tin làm việc theo khoảng thời gian cho user hiện tại
+    try:
+        # lấy current user từ request
+        current_user = request.current_user
+        rfid_uid = current_user.rfid_uid
+        
+        # lấy start_date và end_date parameters
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        
+        if not start_date_str or not end_date_str:
+            return error_response('thieu tham so start_date hoac end_date', 'MISSING_PARAMETERS', 400)
+        
+        # parse date strings
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return error_response('dinh dang date khong hop le, su dung YYYY-MM-DD', 'INVALID_FORMAT', 400)
+        
+        # validate date range
+        if start_date > end_date:
+            return error_response('start_date phai nho hon hoac bang end_date', 'INVALID_RANGE', 400)
+        
+        # tính toán work data cho mỗi ngày trong khoảng
+        worked_days = []
+        current_date = start_date
+        
+        while current_date <= end_date:
+            work_data = calculate_work_day_data(current_date, rfid_uid)
+            
+            # thêm field date vào kết quả
+            work_data['date'] = current_date.strftime('%Y-%m-%d')
+            worked_days.append(work_data)
+            
+            # tăng ngày
+            from datetime import timedelta
+            current_date += timedelta(days=1)
+        
+        return success_response(
+            data={
+                'start_date': start_date_str,
+                'end_date': end_date_str,
+                'worked_days': worked_days
+            },
+            message=f'lay thong tin lam viec tu {start_date_str} den {end_date_str} thanh cong'
+        )
+    
+    except Exception as e:
+        return error_response(str(e), 'SERVER_ERROR', 500)
+
+
+
 # get worked day for a single day
 # URL: GET /api/worked-day/day?date=YYYY-MM-DD
 @api_bp.route('/worked-day/day', methods=['GET'])
 @require_auth
 def get_worked_day_single():
     """
-    lấy thông tin làm việc của 1 ngày cho user hiện tại
-    nếu không có date param, dùng ngày hiện tại
+    get work day information for a single day
+    ---
+    tags:
+      - Work Day Calculation
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: date
+        type: string
+        description: "date to query (YYYY-MM-DD), defaults to current date"
+        example: "2025-12-24"
+    responses:
+      200:
+        description: work day data retrieved successfully
+        schema:
+          type: object
+          properties:
+            is_success:
+              type: boolean
+              example: true
+            message:
+              type: string
+            data:
+              type: object
+              properties:
+                date:
+                  type: string
+                  example: "2025-12-24"
+                times:
+                  type: array
+                  description: "list of all check-in/out times with status"
+                  items:
+                    type: array
+                    example: ["08:00", "SUCCESS"]
+                total_times:
+                  type: number
+                  example: 8.5
+                  description: "total work hours calculated from in-out pairs"
+                type:
+                  type: number
+                  example: 1
+                  description: "1: full day (>=6.5h), 0.5: half day (<6.5h), 0: absent"
+                ot_times:
+                  type: array
+                  description: "overtime entries after 18:00"
+                  items:
+                    type: array
+                    example: ["18:30", "SUCCESS"]
+      400:
+        description: invalid date format
+      401:
+        description: unauthorized
     """
+    # lấy thông tin làm việc của 1 ngày cho user hiện tại
+    # nếu không có date param, dùng ngày hiện tại
     try:
         # lấy current user từ request
         current_user = request.current_user

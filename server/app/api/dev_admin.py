@@ -8,6 +8,50 @@ from app.utils.responses import success_response, error_response
 # URL: GET /api/dev/create-admin
 @api_bp.route('/dev/create-admin', methods=['GET'])
 def create_admin():
+    """
+    create default admin account for development (dev only)
+    ---
+    tags:
+      - Development
+    responses:
+      201:
+        description: admin account created successfully
+        schema:
+          type: object
+          properties:
+            is_success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: "tao admin account thanh cong"
+            data:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  example: 1
+                email:
+                  type: string
+                  example: "admin@gmail.com"
+                full_name:
+                  type: string
+                  example: "Administrator"
+                is_admin:
+                  type: boolean
+                  example: true
+                is_active:
+                  type: boolean
+                  example: true
+                password:
+                  type: string
+                  example: "1"
+                  description: "default password for admin account"
+      409:
+        description: admin account already exists
+      500:
+        description: database error
+    """
     admin_email = "admin"
     
     existing_admin = User.query.filter_by(email=admin_email).first()

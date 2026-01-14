@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+
+    /* neumorphism button styles */
+    .neu-button {
+        @apply px-4 py-2 rounded-neu font-medium transition-all duration-200;
+        @apply bg-neu-light-surface text-neu-light-text shadow-neu-md;
+    }
+
+    .neu-button:hover {
+        @apply shadow-neu-lg;
+    }
+
+    .neu-button:active {
+        @apply shadow-neu-inset;
+    }
+
+    .dark .neu-button {
+        @apply bg-neu-dark-surface text-neu-dark-text shadow-neu-dark-md border border-white/5;
+    }
+
+    .dark .neu-button:hover {
+        @apply shadow-neu-dark-lg;
+    }
+
+    .dark .neu-button:active {
+        @apply shadow-neu-dark-inset;
+    }
+
+    /* neumorphism card styles */
+    .neu-card {
+        @apply rounded-neu p-5 transition-all duration-300;
+        @apply bg-neu-light-surface shadow-neu-sm;
+    }
+
+    .dark .neu-card {
+        @apply bg-neu-dark-surface shadow-neu-dark-sm border border-white/5;
+    }
+
+    /* neumorphism input styles */
+    .neu-input {
+        @apply px-4 py-3 rounded-neu w-full transition-all duration-200;
+        @apply bg-neu-light-surface text-neu-light-text shadow-neu-inset;
+    }
+
+    .neu-input:focus {
+        @apply shadow-neu-inset-lg outline-none;
+    }
+
+    .dark .neu-input {
+        @apply bg-neu-dark-surface text-neu-dark-text shadow-neu-dark-inset;
+    }
+
+    .dark .neu-input:focus {
+        @apply shadow-neu-dark-inset-lg;
+    }
+
+    /* neumorphism icon button */
+    .neu-icon-button {
+        @apply p-3 rounded-full transition-all duration-200;
+        @apply bg-neu-light-surface text-neu-light-text shadow-neu-sm;
+    }
+
+    .neu-icon-button:hover {
+        @apply shadow-neu-md;
+    }
+
+    .neu-icon-button:active {
+        @apply shadow-neu-inset;
+    }
+
+    .dark .neu-icon-button {
+        @apply bg-neu-dark-surface text-neu-dark-text shadow-neu-dark-sm;
+    }
+
+    .dark .neu-icon-button:hover {
+        @apply shadow-neu-dark-md;
+    }
+
+    .dark .neu-icon-button:active {
+        @apply shadow-neu-dark-inset;
+    }
+
+    /* neumorphism container */
+    .neu-container {
+        @apply min-h-screen transition-colors duration-300;
+        @apply bg-neu-light-bg dark:bg-neu-dark-bg;
+    }
+}
+
+@layer base {
+    body {
+        @apply bg-neu-light-bg text-neu-light-text;
+    }
+
+    .dark body {
+        @apply bg-neu-dark-bg text-neu-dark-text;
+    }
+
+    /* scrollbar styling */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        @apply bg-neu-light-surface dark:bg-neu-dark-surface;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        @apply bg-gray-400 dark:bg-gray-600 rounded-md;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        @apply bg-gray-500;
+    }
+
+    /* focus visible for accessibility */
+    *:focus-visible {
+        @apply outline-2 outline-primary-500 outline-offset-2;
+    }
+}
