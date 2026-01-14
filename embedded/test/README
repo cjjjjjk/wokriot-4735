@@ -1,11 +1,36 @@
+Luồng test cơ bản
 
-This directory is intended for PlatformIO Test Runner and project tests.
+1.ESP32 khởi động
 
-Unit Testing is a software testing method by which individual units of
-source code, sets of one or more MCU program modules together with associated
-control data, usage procedures, and operating procedures, are tested to
-determine whether they are fit for use. Unit testing finds problems early
-in the development cycle.
+2.Kết nối WiFi
 
-More information about PlatformIO Unit Testing:
-- https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+3.Kết nối MQTT broker
+
+4.Subscribe topic control & response
+
+5.Quẹt thẻ RFID
+
+6.ESP32 publish attendance:
+
+{
+  "device_id": "esp32_01",
+  "rfid_uid": "A1B2C3D4",
+  "timestamp": 12345678
+}
+
+7.Server phản hồi qua topic response
+
+8.ESP32 xử lý:
+
+OK → mở cửa / beep ngắn
+
+DENIED → beep dài
+
+* Topic MQTT sử dụng
+            Topic	                 Mô tả
+esp32/{device_id}/attendance	ESP32 → Server
+esp32/{device_id}/response	    Server → ESP32
+esp32/{device_id}/control	    Server → ESP32
+
+* Ghi chú
+    Timestamp hiện tại dùng millis() (chỉ để test)
