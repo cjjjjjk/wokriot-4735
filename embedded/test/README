@@ -1,0 +1,36 @@
+Luồng test cơ bản
+
+1.ESP32 khởi động
+
+2.Kết nối WiFi
+
+3.Kết nối MQTT broker
+
+4.Subscribe topic control & response
+
+5.Quẹt thẻ RFID
+
+6.ESP32 publish attendance:
+
+{
+  "device_id": "esp32_01",
+  "rfid_uid": "A1B2C3D4",
+  "timestamp": 12345678
+}
+
+7.Server phản hồi qua topic response
+
+8.ESP32 xử lý:
+
+OK → mở cửa / beep ngắn
+
+DENIED → beep dài
+
+* Topic MQTT sử dụng
+            Topic	                 Mô tả
+esp32/{device_id}/attendance	ESP32 → Server
+esp32/{device_id}/response	    Server → ESP32
+esp32/{device_id}/control	    Server → ESP32
+
+* Ghi chú
+    Timestamp hiện tại dùng millis() (chỉ để test)
