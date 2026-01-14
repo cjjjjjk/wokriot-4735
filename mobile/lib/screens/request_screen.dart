@@ -70,39 +70,45 @@ class _RequestScreenState extends State<RequestScreen> {
                 ),
                 onPressed: () async {
                   // --- 1. KIỂM TRA ĐẦU VÀO (VALIDATION) ---
-                  // .trim() để cắt bỏ khoảng trắng thừa ở đầu/cuối
                   if (_reasonController.text.trim().isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text("Vui lòng nhập lý do trước khi gửi!"),
-                        backgroundColor: Colors.red, // Báo lỗi màu đỏ
+                        backgroundColor: Colors.red,
                         behavior: SnackBarBehavior.floating,
+                        duration: Duration(
+                            milliseconds: 1000), // Lỗi thì hiện 1s cho kịp đọc
                       ),
                     );
-                    return; // DỪNG LẠI TẠI ĐÂY, không chạy code bên dưới nữa
+                    return;
                   }
-                  // ----------------------------------------
 
                   // --- 2. LƯU THÔNG BÁO VÀO MÁY ---
                   await NotificationHelper.addNotification(
                       "Gửi đơn thành công",
                       "Bạn đã gửi đơn $_selectedType. Lý do: ${_reasonController.text}",
                       "request");
-                  // -----------------------------
 
                   if (!context.mounted) return;
 
-                  // Hiển thị thông báo thành công
+                  // --- 3. HIỂN THỊ THÔNG BÁO THÀNH CÔNG (0.5s) ---
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text("Đã gửi đơn $_selectedType thành công!"),
                       backgroundColor: Colors.green,
                       behavior: SnackBarBehavior.floating,
+                      duration: const Duration(
+                          milliseconds: 500), // <--- ĐÃ SỬA: 0.5 giây
                     ),
                   );
 
-                  // Quay về màn hình chính
-                  Navigator.pop(context);
+                  // --- 4. ĐỢI 0.5s RỒI MỚI ĐÓNG MÀN HÌNH ---
+                  // (Để người dùng kịp nhìn thấy thông báo trước khi quay về trang chủ)
+                  await Future.delayed(const Duration(milliseconds: 500));
+
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
                 },
                 child: const Text("GỬI ĐƠN NGAY",
                     style: TextStyle(

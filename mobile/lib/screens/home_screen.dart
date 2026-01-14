@@ -14,6 +14,7 @@ import 'history_screen.dart';
 import 'request_screen.dart';
 import 'profile_screen.dart';
 import 'notification_screen.dart';
+import 'settings_screen.dart'; // Import màn hình cài đặt
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -90,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- 3. LẤY TRẠNG THÁI TỪ SERVER (ĐÃ SỬA LOGIC PARSE JSON) ---
+  // --- 3. LẤY TRẠNG THÁI TỪ SERVER ---
   Future<void> _fetchTodayData() async {
     print("------- BẮT ĐẦU GỌI API -------");
     final prefs = await SharedPreferences.getInstance();
@@ -111,11 +112,11 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ).timeout(const Duration(seconds: 5));
 
-      print("Response Body: ${response.body}"); // Xem log ở đây
+      print("Response Body: ${response.body}");
 
       if (response.statusCode == 200) {
         final bodyJSON = jsonDecode(response.body);
-        final data = bodyJSON['data']; // Dữ liệu nằm trong key 'data'
+        final data = bodyJSON['data'];
 
         String status = "NONE";
         String time = "--:--";
@@ -151,13 +152,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final now = DateTime.now();
-
       // KHỚP VỚI WEB: Tuần bắt đầu từ Chủ Nhật (weekday = 7 trong Dart)
       int currentDay = now.weekday % 7; // 0=CN, 1=T2, ...6=T7
 
       // Tính ngày Chủ Nhật đầu tuần
       DateTime startOfWeek = now.subtract(Duration(days: currentDay));
-      // Reset giờ về 0h00
       startOfWeek =
           DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
 
@@ -186,7 +185,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
         for (var dayData in days) {
           DateTime date = DateTime.parse(dayData['date']); // YYYY-MM-DD
-
           double hours = (dayData['total_times'] ?? 0).toDouble();
 
           // Map weekday to array index: CN=0, T2=1, ..., T7=6
@@ -199,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) {
           setState(() {
             _weeklyData = newWeeklyData;
-            _startOfWeek = startOfWeek; // Cập nhật ngày bắt đầu tuần (Chủ Nhật)
+            _startOfWeek = startOfWeek;
           });
         }
       }
@@ -208,16 +206,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- LOGIC MQTT ---
+  // --- LOGIC MQTT (ĐÃ SỬA GIỜ ẢO) ---
   void _setupMqtt() async {
     await _mqttService.initialize();
 
+    // Biến 'time' là thời gian từ MQTT gửi sang
     _mqttService.onDataReceived = (status, msg, time) async {
       if (!mounted) return;
 
-      final now = DateTime.now();
-      final String realTime =
-          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+      // ✅ QUAN TRỌNG: Dùng thời gian từ MQTT (Giờ ảo) thay vì DateTime.now()
+      final String deviceTime = time;
 
       // --- CHẶN LẶP LẠI ---
       if (status == "CHECK_IN") {
@@ -225,6 +223,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text("Bạn đã Check-in rồi!"),
             backgroundColor: Colors.redAccent,
+            duration: Duration(milliseconds: 500),
           ));
           return;
         }
@@ -232,6 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text("Bạn đã hoàn thành ca làm việc rồi!"),
             backgroundColor: Colors.redAccent,
+            duration: Duration(milliseconds: 500),
           ));
           return;
         }
@@ -242,6 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text("Bạn đã Check-out rồi!"),
             backgroundColor: Colors.redAccent,
+            duration: Duration(milliseconds: 500),
           ));
           return;
         }
@@ -249,6 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text("Bạn chưa Check-in thì không thể Check-out!"),
             backgroundColor: Colors.redAccent,
+            duration: Duration(milliseconds: 500),
           ));
           return;
         }
@@ -263,7 +265,9 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       setState(() => _isLoading = false);
-      _updateUI(status, time);
+
+      // ✅ Cập nhật giao diện bằng deviceTime
+      _updateUI(status, deviceTime);
 
       String notifType = "info";
       String notifTitle = "Thông báo";
@@ -276,16 +280,18 @@ class _HomeScreenState extends State<HomeScreen> {
         notifType = "checkout";
       }
 
+      // Lưu thông báo với deviceTime
       await NotificationHelper.addNotification(
-          notifTitle, "Ghi nhận lúc $time. $msg", notifType);
+          notifTitle, "Ghi nhận lúc $deviceTime. $msg", notifType);
 
+      // Cập nhật lịch sử với deviceTime
       setState(() {
         _history.insert(
             0,
             AttendanceHistory(
               date: DateTime.now().toString().split(' ')[0],
-              checkIn: status == "CHECK_IN" ? realTime : "--:--",
-              checkOut: status == "CHECK_OUT" ? realTime : "--:--",
+              checkIn: status == "CHECK_IN" ? deviceTime : "--:--",
+              checkOut: status == "CHECK_OUT" ? deviceTime : "--:--",
               status: status == "CHECK_IN" ? "Vào làm" : "Ra về",
             ));
       });
@@ -294,8 +300,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text("$successMessage (Lúc $realTime)"),
-            backgroundColor: Colors.blueAccent),
+            content: Text("$successMessage (Lúc $deviceTime)"),
+            backgroundColor: Colors.blueAccent,
+            duration: const Duration(milliseconds: 500)),
       );
     };
   }
@@ -328,31 +335,31 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // --- 5. WIDGET TRẠNG THÁI (ĐÃ SỬA LỖI Colors -> Icons) ---
+  // --- 5. WIDGET TRẠNG THÁI ---
   Widget _buildStatusCard() {
     Color cardColor;
     String statusTitle;
     String statusDesc;
-    IconData statusIcon; // Đổi type thành IconData
+    IconData statusIcon;
 
     switch (_currentStatus) {
       case "CHECK_IN":
         cardColor = Colors.orange.shade700;
         statusTitle = "ĐANG LÀM VIỆC";
         statusDesc = "Đã vào lúc $_displayTime.\nĐừng quên Check-out khi về!";
-        statusIcon = Icons.timer; // ĐÃ SỬA: Dùng Icons thay vì Colors
+        statusIcon = Icons.timer;
         break;
       case "CHECK_OUT":
         cardColor = Colors.green.shade700;
         statusTitle = "ĐÃ HOÀN THÀNH";
         statusDesc = "Đã về lúc $_displayTime.\nHẹn gặp lại bạn vào ngày mai!";
-        statusIcon = Icons.check_circle_outline; // ĐÃ SỬA
+        statusIcon = Icons.check_circle_outline;
         break;
       default: // NONE
         cardColor = Colors.blue.shade700;
         statusTitle = "SẴN SÀNG";
         statusDesc = "Vui lòng quét mã để Check-in\nbắt đầu ca làm việc.";
-        statusIcon = Icons.login; // ĐÃ SỬA
+        statusIcon = Icons.login;
     }
 
     return Container(
@@ -453,13 +460,13 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. CHART AREA (Đã cập nhật)
+              // 1. BIỂU ĐỒ
               WeeklyChartWidget(
                   weeklyData: _weeklyData, startDate: _startOfWeek),
 
               const SizedBox(height: 24),
 
-              // 2. STATUS CARD
+              // 2. TRẠNG THÁI HÔM NAY
               const Text("Trạng thái hôm nay",
                   style: TextStyle(
                       fontSize: 16,
@@ -521,7 +528,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 30),
 
-              // 3. UTILITIES GRID
+              // 3. TIỆN ÍCH NHANH
               const Text("Tiện ích nhanh",
                   style: TextStyle(
                       fontSize: 16,
@@ -564,8 +571,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildMenuCard(
                       Icons.settings_outlined, "Cài đặt\nChung", Colors.grey,
                       () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text("Tính năng đang phát triển")));
+                    // ✅ Đã gắn link sang SettingsScreen
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SettingsScreen()));
                   }),
                 ],
               ),
