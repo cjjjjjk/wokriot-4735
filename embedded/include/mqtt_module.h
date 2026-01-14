@@ -1,16 +1,18 @@
 #pragma once
 #include <Arduino.h>
 
-// Khởi tạo MQTT
+// khởi tạo mqtt
 void mqtt_init();
 
-// Gọi trong loop()
+// gọi trong loop()
 void mqtt_loop();
 
-// Gửi dữ liệu chấm công
-void mqtt_publish_attendance(String rfid_uid);
+// gửi dữ liệu chấm công với timestamp và code
+void mqtt_publish_attendance(String rfid_uid, String timestamp);
 
-// Callback xử lý message từ MQTT
-void mqtt_callback(char* topic, byte* payload, unsigned int length);
+// callback xử lý message từ mqtt
+void mqtt_callback(char *topic, byte *payload, unsigned int length);
 
-bool mqtt_publish_raw(String line);
+// device state variables (extern)
+extern bool rfidEnabled;
+extern bool deviceActive;

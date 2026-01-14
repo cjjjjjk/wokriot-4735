@@ -1,135 +1,213 @@
 #include "mqtt_module.h"
-#include "config.h"
-#include "servo_module.h"
 #include "buzzer_module.h"
+#include "config.h"
 #include "lcd_module.h"
+#include "servo_module.h"
 
-#include <WiFi.h>
-#include <PubSubClient.h>
+
 #include <ArduinoJson.h>
+#include <PubSubClient.h>
+#include <WiFi.h>
 
-// ===== MQTT CLIENT =====
+
+// mqtt client
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-// ===== INIT =====
-void mqtt_init() {
-    mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
-    mqttClient.setCallback(mqtt_callback);
+// device state variables
+bool rfidEnabled = true;
+bool deviceActive = true;
+
+// led blinking
+void blinkLed(int times) {
+  for (int i = 0; i < times; i++) {
+    digitalWrite(LED_PIN, HIGH);
+    delay(150);
+    digitalWrite(LED_PIN, LOW);
+    delay(150);
+  }
 }
 
-// ===== LOOP =====
-void mqtt_loop() {
-    if (!mqttClient.connected()) {
-        Serial.println("MQTT reconnecting...");
-        while (!mqttClient.connected()) {
-            if (mqttClient.connect(DEVICE_ID)) {
-                Serial.println("MQTT connected");
+// gửi phản hồi lệnh điều khiển về server
+void sendControlResponse(const char *command, bool success,
+                         const char *message) {
+  StaticJsonDocument<256> doc;
+  doc["command"] = command;
+  doc["status"] = success ? "SUCCESS" : "FAILED";
+  doc["message"] = message;
 
-                mqttClient.subscribe(TOPIC_CONTROL);
-                mqttClient.subscribe(TOPIC_RESPONSE);
+  char payload[256];
+  serializeJson(doc, payload);
+  mqttClient.publish(TOPIC_CONTROL_RESPONSE, payload);
 
-                Serial.println("Subscribed control & response");
-            } else {
-                Serial.print("MQTT failed, rc=");
-                Serial.println(mqttClient.state());
-                delay(2000);
-            }
-        }
-    }
-    mqttClient.loop();
+  Serial.print("Control Response TX: ");
+  Serial.println(payload);
 }
 
-// ===== PUBLISH ATTENDANCE =====
-void mqtt_publish_attendance(String rfid_uid) {
-    StaticJsonDocument<200> doc;
+// xử lý lệnh điều khiển từ server
+void handleControlCommand(const char *command) {
+  Serial.print("Processing command: ");
+  Serial.println(command);
 
-    doc["device_id"] = DEVICE_ID;
-    doc["rfid_uid"]  = rfid_uid;
-    doc["timestamp"] = millis();  
+  buzzer_beep_control();
 
-    char buffer[256];
-    serializeJson(doc, buffer);
+  if (strcmp(command, "DOOR_OPEN") == 0) {
+    // mở cửa
+    servo_open();
+    lcd_show_control("REMOTE CONTROL", "DOOR OPENED");
+    sendControlResponse(command, true, "door opened by admin");
+    blinkLed(2);
 
-    mqttClient.publish(TOPIC_ATTENDANCE, buffer);
+  } else if (strcmp(command, "DOOR_CLOSE") == 0) {
+    // đóng cửa
+    servo_close();
+    lcd_show_control("REMOTE CONTROL", "DOOR CLOSED");
+    sendControlResponse(command, true, "door closed by admin");
+    blinkLed(2);
 
-    Serial.println("Publish attendance:");
-    Serial.println(buffer);
+  } else if (strcmp(command, "RFID_ENABLE") == 0) {
+    // bật chức năng quẹt thẻ
+    rfidEnabled = true;
+    lcd_show_control("RFID ENABLED", "CARD READY ..");
+    sendControlResponse(command, true, "rfid scanning enabled");
+    blinkLed(2);
+
+  } else if (strcmp(command, "RFID_DISABLE") == 0) {
+    // tắt chức năng quẹt thẻ
+    rfidEnabled = false;
+    lcd_show_rfid_disabled();
+    sendControlResponse(command, true, "rfid scanning disabled");
+    blinkLed(3);
+
+  } else if (strcmp(command, "DEVICE_ACTIVATE") == 0) {
+    // kích hoạt thiết bị
+    deviceActive = true;
+    rfidEnabled = true;
+    lcd_show_control("DEVICE ACTIVATED", "READY");
+    sendControlResponse(command, true, "device activated");
+    blinkLed(2);
+
+  } else if (strcmp(command, "DEVICE_DEACTIVATE") == 0) {
+    // vô hiệu hoá thiết bị
+    deviceActive = false;
+    rfidEnabled = false;
+    servo_close();
+    lcd_show_device_disabled();
+    sendControlResponse(command, true, "device deactivated");
+    buzzer_beep_fail();
+
+  } else {
+    // lệnh không hợp lệ
+    lcd_show_control("UNKNOWN CMD", "");
+    sendControlResponse(command, false, "unknown command");
+  }
 }
 
-// ===== CALLBACK =====
-void mqtt_callback(char* topic, byte* payload, unsigned int length) {
-    String message;
-    for (unsigned int i = 0; i < length; i++) {
-        message += (char)payload[i];
+// mqtt callback
+void mqtt_callback(char *topic, byte *payload, unsigned int length) {
+  payload[length] = '\0';
+  String message = String((char *)payload);
+
+  Serial.print("MQTT RX [");
+  Serial.print(topic);
+  Serial.print("]: ");
+  Serial.println(message);
+
+  StaticJsonDocument<256> doc;
+  if (deserializeJson(doc, message)) {
+    Serial.println("JSON parse failed");
+    return;
+  }
+
+  // kiểm tra xem message đến từ topic nào
+  String topicStr = String(topic);
+
+  if (topicStr == TOPIC_CONTROL) {
+    // xử lý lệnh điều khiển từ admin
+    const char *command = doc["command"];
+    if (command) {
+      handleControlCommand(command);
     }
+    return;
+  }
 
-    Serial.print("MQTT [");
-    Serial.print(topic);
-    Serial.print("]: ");
-    Serial.println(message);
+  if (topicStr == TOPIC_RESPONSE) {
+    // xử lý phản hồi attendance từ server
+    bool isSuccess = doc["is_success"];
+    const char *userName = doc["user_name"];
+    const char *errorCode = doc["error_code"];
 
-    StaticJsonDocument<256> doc;
-    if (deserializeJson(doc, message)) {
-        Serial.println("JSON parse failed");
-        return;
-    }
+    if (isSuccess) {
+      buzzer_beep_success();
+      lcd_show_granted(userName ? userName : "Welcome");
 
-    // ===== RESPONSE (Server → ESP32) =====
-    if (String(topic) == TOPIC_RESPONSE) {
+      blinkLed(1);
+      servo_open();
+      delay(3500);
+      lcd_show_ready();
 
-        String status = doc["status"] | "";
-        String full_name = doc["full_name"] | "";
-        String action = doc["action"] | "";
+    } else {
+      buzzer_beep_fail();
 
-        if (status == "OK") {
-            Serial.println("Access GRANTED");
-            Serial.println("Name: " + full_name);
-
-            lcd_show_granted(full_name);
-            buzzer_beep_short();
-
-            if (action == "DOOR_OPEN") {
-                servo_open();
-            }
-
+      // hiển thị lỗi cụ thể
+      if (errorCode) {
+        if (strcmp(errorCode, "RFID_DISABLED") == 0) {
+          lcd_show_denied_with_code("RFID DISABLED");
         } else {
-            Serial.println("Access DENIED");
-
-            lcd_show_denied();
-            buzzer_beep_long();
+          lcd_show_denied_with_code(errorCode);
         }
+      } else {
+        lcd_show_denied();
+      }
+
+      blinkLed(3);
     }
+  }
+}
 
-    // ===== CONTROL (Server → ESP32) =====
-    else if (String(topic) == TOPIC_CONTROL) {
+// init mqtt
+void mqtt_init() {
+  mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
+  mqttClient.setCallback(mqtt_callback);
+}
 
-        String command = doc["command"] | "";
+// mqtt loop
+void mqtt_loop() {
+  if (!mqttClient.connected()) {
+    Serial.println("MQTT reconnecting...");
+    while (!mqttClient.connected()) {
+      if (mqttClient.connect(DEVICE_ID)) {
+        Serial.println("MQTT connected");
 
-        Serial.println("Control command: " + command);
+        mqttClient.subscribe(TOPIC_RESPONSE);
+        Serial.print("Subscribed to: ");
+        Serial.println(TOPIC_RESPONSE);
 
-        if (command == "DOOR_OPEN") {
-            servo_open();
-            buzzer_beep_short();
-            lcd_show_granted("Door Open");
-
-        }
-        else if (command == "DOOR_CLOSE") {
-            servo_close();
-            buzzer_beep_long();
-            lcd_show_ready();
-        }
-        else if (command == "RFID_ENABLE") {
-            Serial.println("=> RFID enabled");
-        }
-        else if (command == "RFID_DISABLE") {
-            Serial.println("=> RFID disabled");
-        }
-        else if (command == "DEVICE_ACTIVATE") {
-            Serial.println("=> Device activated");
-        }
-        else if (command == "DEVICE_DEACTIVATE") {
-            Serial.println("=> Device deactivated");
-        }
+        mqttClient.subscribe(TOPIC_CONTROL);
+        Serial.print("Subscribed to: ");
+        Serial.println(TOPIC_CONTROL);
+      } else {
+        Serial.print("MQTT failed, rc=");
+        Serial.println(mqttClient.state());
+        delay(500);
+      }
     }
+  }
+  mqttClient.loop();
+}
+
+// publish attendance với timestamp và code
+void mqtt_publish_attendance(String rfid_uid, String timestamp) {
+  StaticJsonDocument<200> doc;
+  doc["rfid_uid"] = rfid_uid;
+  doc["timestamp"] = timestamp;
+  doc["code"] = "REALTIME";
+
+  char buffer[256];
+  serializeJson(doc, buffer);
+
+  mqttClient.publish(TOPIC_ATTENDANCE, buffer);
+
+  Serial.print("Attendance TX: ");
+  Serial.println(buffer);
 }

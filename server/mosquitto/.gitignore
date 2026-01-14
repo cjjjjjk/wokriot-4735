@@ -1,0 +1,4 @@
+# mosquitto runtime data
+data/
+log/
+*.db

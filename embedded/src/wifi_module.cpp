@@ -1,8 +1,10 @@
 #include "wifi_module.h"
 #include "config.h"
 
-#include <WiFi.h>
 #include <Arduino.h>
+#include <WiFi.h>
+#include <time.h>
+
 
 void wifi_init() {
   Serial.print("Connecting to WiFi: ");
@@ -11,7 +13,7 @@ void wifi_init() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
+    delay(300);
     Serial.print(".");
   }
 
@@ -19,4 +21,8 @@ void wifi_init() {
   Serial.println("WiFi connected!");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+
+  // config ntp time for iso timestamp
+  configTime(7 * 3600, 0, "pool.ntp.org");
+  Serial.println("NTP time configured");
 }

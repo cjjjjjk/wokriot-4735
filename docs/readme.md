@@ -11,22 +11,28 @@ Hệ thống chấm công sử dụng thẻ RFID kết hợp ESP32, cho phép qu
 - **Servo Motor:** Điều khiển cửa (mở/đóng)
 - **Buzzer:** Phát âm thanh thông báo
 
-## 2. Kiến trúc hệ thống
+## 2. kiến trúc hệ thống
 
 ```
-┌─────────────┐         ┌─────────────────┐         ┌─────────────┐         ┌─────────────┐
-│   ESP32     │ ◄─────► │   MQTT Broker   │ ◄─────► │   Flask     │ ◄─────► │   MySQL     │
-│  (Device)   │  MQTT   │  (broker.emqx)  │  MQTT   │  (Server)   │         │             |  
-└─────────────┘         └─────────────────┘         └─────────────┘         └─────────────┘
-                                                           │
-                                                         REST API
-                                    ┌──────────────────────┼  
-                                    │                      │  
-                             ┌──────▼──────┐        ┌──────▼──────┐  
-                             │   Web App   │        │ Mobile App  │  
-                             │   (React)   │        │  (Flutter)  │  
-                             └─────────────┘        └─────────────┘  
+┌─────────────┐         ┌─────────────────────┐         ┌─────────────┐         ┌─────────────┐
+│   ESP32     │ ◄─────► │   MQTT Broker       │ ◄─────► │   Flask     │ ◄─────► │   MySQL     │
+│  (device)   │  MQTT   │  (mosquitto local)  │  MQTT   │  (server)   │         │ (database)  |  
+└─────────────┘         └─────────────────────┘         └─────────────┘         └─────────────┘
+                                 │                             │
+                              docker                        REST API
+                                                ┌──────────────────────┼  
+                                                │                      │  
+                                         ┌──────▼──────┐        ┌──────▼──────┐  
+                                         │   web app   │        │ mobile app  │  
+                                         │   (react)   │        │  (flutter)  │  
+                                         └─────────────┘        └─────────────┘  
 ```
+
+### mqtt broker:
+- **local broker:** eclipse mosquitto 2.0 (chạy trong docker)
+- **port:** 1883 (mqtt), 9001 (websocket)
+- **network:** docker internal network `iot-network`
+- **access:** anonymous enabled (không cần authentication)
 
 ### MQTT Topics:
 | Topic | Hướng | Mô tả |
@@ -96,9 +102,9 @@ Hệ thống chấm công sử dụng thẻ RFID kết hợp ESP32, cho phép qu
 
 ```
 workiniot-4735/
-├── docs/                    # Tài liệu
+├── docs/                   
 ├── embedded/               
-│   └── arduino/             # Code ESP32 (Arduino)
+│   └── arduino/             # ESP32
 ├── server/                  # Backend Flask
 │   ├── app/
 │   │   ├── api/             # API endpoints
@@ -128,21 +134,60 @@ workiniot-4735/
 | Firmware | Arduino IDE, ESP32, MFRC522, PubSubClient, ArduinoJson |
 | Backend | Python, Flask, Flask-SQLAlchemy, Flask-MQTT, JWT |
 | Database | MySQL 8.0 |
+| MQTT Broker | Eclipse Mosquitto 2.0 (Docker) |
 | Web Frontend | React, TypeScript, Vite, Tailwind CSS, Axios |
 | Mobile | Flutter, Dart, Provider |
-| Protocol | MQTT (broker.emqx.io), REST API |
+| Protocol | MQTT, REST API |
 | Deploy | Docker, Docker Compose |
 
-## 6. Hướng dẫn chạy
+## 6. hướng dẫn chạy
 
-### Backend (Server)
+### backend (server + mqtt broker)
+
 ```bash
 cd server
 
-# chạy với docker
+# khởi động tất cả services (mysql + flask + mosquitto)
 docker compose up -d --build
 
+# kiểm tra trạng thái
+docker compose ps
+
 ```
+
+**services chạy:**
+- `mysql_iot_container` - port 3306
+- `flask_iot_container` - port 5000
+- `mosquitto_iot_container` - port 1883, 9001
+
+### mqtt broker configuration
+
+#### 1️⃣ flask server
+file `.env.docker` đã cấu hình sẵn:
+```bash
+MQTT_BROKER_URL=mqtt        # tên docker service
+MQTT_BROKER_PORT=1883
+```
+
+#### 2️⃣ esp32
+cần sử dụng **ip address của máy host**.
+
+**lấy ip address:**
+```powershell
+# windows
+ipconfig
+
+# linux/mac
+ifconfig
+```
+
+ip wifi/ethernet, ví dụ: `192.168.1.10`
+**cập nhật `embedded/include/config.h`:**
+```cpp
+#define MQTT_BROKER   "192.168.1.10" 
+#define MQTT_PORT     1883
+``` 
+
 ## 7. Database Models
 
 ### User
