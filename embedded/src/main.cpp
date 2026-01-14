@@ -1,52 +1,36 @@
 #include <Arduino.h>
-#include "rfid.h"
-#include "lcd_ui.h"
-#include "relay.h"
-#include "led_buzzer.h"
-#include "time_manager.h"
-#include "offline_storage.h"
-#include "wifi_manager.h"
-#include "mqtt_client.h"
+
+#include "wifi_module.h"
+#include "mqtt_module.h"
+#include "rfid_module.h"
+#include "servo_module.h"
+#include "buzzer_module.h"
+#include "lcd_module.h"
+
 
 void setup() {
-  Serial.begin(115200);
+    Serial.begin(115200);
+    delay(1000);
 
-  initLED();
-  initBuzzer();
-  initRelay();
-  initLCD();
-  initRFID();
-  initOfflineStorage();
-  initWiFi();
-  initMQTT();
-  initTime();
+    Serial.println("Booting system...");
 
-  lcdShow("System Ready", "");
+    // ===== INIT MODULES =====
+    wifi_init();
+    mqtt_init();
+    rfid_init();
+
+    servo_init();
+    buzzer_init();
+    lcd_init();
+
+    // ===== LCD READY =====
+    lcd_show_ready();
+
+    Serial.println("System ready");
 }
 
 void loop() {
-  mqttLoop();
-  checkWiFi();
-
-  String uid;
-  if (readCard(uid)) {
-    tm now = getNow();
-    ActionType action = detectAction(now);
-
-    if (!isWiFiConnected()) {
-      saveOffline(uid, action, now);
-      showOffline();
-      return;
-    }
-
-    if (publishAttendance(uid, action, now)) {
-      showSuccess(action);
-      openDoor();
-    } else {
-      saveOffline(uid, action, now);
-      showOffline();
-    }
-  }
-
-  delay(200);
+    mqtt_loop();
+    rfid_loop();
+    servo_loop();
 }

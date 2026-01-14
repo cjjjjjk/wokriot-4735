@@ -1,8 +1,0 @@
-#pragma once
-
-enum ActionType {
-  ACTION_CHECKIN,
-  ACTION_CHECKOUT,
-  ACTION_MIDTIME,
-  ACTION_AFTER_HOURS
-};
