@@ -32,5 +32,3 @@ esp32/{device_id}/attendance	ESP32 → Server
 esp32/{device_id}/response	    Server → ESP32
 esp32/{device_id}/control	    Server → ESP32
 
-* Ghi chú
-    Timestamp hiện tại dùng millis() (chỉ để test)
